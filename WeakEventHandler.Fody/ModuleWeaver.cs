@@ -19,20 +19,24 @@
     {
         private TypeReference _action2Type;
         private MethodReference _action2Constructor;
+        private TypeReference _action3Type;
+        private MethodReference _action3Constructor;
         private TypeReference _eventHandlerType;
 
         private TypeDefinition _weakListenerType;
         private MethodDefinition _weakListenerConstructor;
         private MethodDefinition _weakListenerSubscribeMethod;
         private MethodDefinition _weakListenerUnsubscribeMethod;
+        private MethodDefinition _weakListenerReleaseMethod;
 
-        public override bool ShouldCleanReference => false;
+        public override bool ShouldCleanReference => true;
 
+        [NotNull]
         public override IEnumerable<string> GetAssembliesForScanning() => Enumerable.Empty<string>();
 
         public override void Execute()
         {
-            Debugger.Launch();
+            // Debugger.Launch();
 
             if (!ModuleDefinition.TryGetTypeReference("WeakEventHandler.MakeWeakAttribute", out var makeWeakAttributeReference))
                 return;
@@ -41,18 +45,21 @@
 
             var listenerSource = makeWeakAttribute.Module.Types.Single(t => t.Name == "WeakEventListener`3");
 
-            var codeImporter = new CodeImporter(ModuleDefinition);
+            var codeImporter = new CodeImporter(ModuleDefinition) { NamespaceDecorator = value => "<>" + value}; 
 
             _weakListenerType = codeImporter.Import(listenerSource);
-            _weakListenerConstructor = _weakListenerType.GetConstructors().Single(ctor => ctor.Parameters.Count == 3);
+            _weakListenerConstructor = _weakListenerType.GetConstructors().Single(ctor => ctor.Parameters.Count == 4);
 
             var weakListenerMethods = _weakListenerType.GetMethods();
 
             _weakListenerSubscribeMethod = weakListenerMethods.Single(method => method.Name == "Subscribe");
             _weakListenerUnsubscribeMethod = weakListenerMethods.Single(method => method.Name == "Unsubscribe");
+            _weakListenerReleaseMethod = weakListenerMethods.Single(method => method.Name == "Release");
 
             _action2Type = this.ImportType<Action<object, EventArgs>>();
             _action2Constructor = this.ImportMethod<Action<object, EventArgs>, object, IntPtr>(".ctor");
+            _action3Type = this.ImportType<Action<Type, object, EventArgs>>();
+            _action3Constructor = this.ImportMethod<Action<Type, object, EventArgs>, object, IntPtr>(".ctor");
 
             _eventHandlerType = this.ImportType<EventHandler<EventArgs>>();
 
@@ -128,8 +135,8 @@
             var weakListenerType = _weakListenerType.MakeGenericInstanceType(sourceType, targetType, eventArgsType);
             var weakListenerConstructor = _weakListenerConstructor.OnGenericType(weakListenerType);
 
-            var eventSinkActionType = _action2Type.MakeGenericInstanceType(TypeSystem.ObjectReference, eventArgsType);
-            var eventSinkActionConstructor = _action2Constructor.OnGenericType(eventSinkActionType);
+            var eventSinkActionType = _action3Type.MakeGenericInstanceType(targetType, TypeSystem.ObjectReference, eventArgsType);
+            var eventSinkActionConstructor = _action3Constructor.OnGenericType(eventSinkActionType);
 
             var eventHandlerType = _eventHandlerType.MakeGenericInstanceType(eventArgsType);
             var eventHandlerAdapterActionType = _action2Type.MakeGenericInstanceType(sourceType, eventHandlerType);
@@ -146,27 +153,33 @@
 
             targetType.InsertIntoConstructors(() => new[]
             {
-                Instruction.Create(OpCodes.Ldarg_0),
-
-                Instruction.Create(OpCodes.Ldarg_0),
+                // this
+                Instruction.Create(OpCodes.Ldarg_0), 
+                // targetObject
+                Instruction.Create(OpCodes.Ldarg_0), 
+                // targetDelegate
+                Instruction.Create(OpCodes.Ldnull),
                 Instruction.Create(OpCodes.Ldftn, eventSinkMethod),
                 Instruction.Create(OpCodes.Newobj, eventSinkActionConstructor),
-
+                // add 
                 Instruction.Create(OpCodes.Ldnull),
                 Instruction.Create(OpCodes.Ldftn, addMethodAdapter),
                 Instruction.Create(OpCodes.Newobj, eventHandlerAdapterActionConstructor),
-
+                // remove
                 Instruction.Create(OpCodes.Ldnull),
                 Instruction.Create(OpCodes.Ldftn, removeMethodAdapter),
                 Instruction.Create(OpCodes.Newobj, eventHandlerAdapterActionConstructor),
 
                 Instruction.Create(OpCodes.Newobj, weakListenerConstructor),
+                
                 Instruction.Create(OpCodes.Stfld, weakListenerField)
             });
 
             targetType.InsertIntoFinalizer(
-                
-                );
+                Instruction.Create(OpCodes.Ldarg_0),
+                Instruction.Create(OpCodes.Ldfld, weakListenerField),
+                Instruction.Create(OpCodes.Callvirt, _weakListenerReleaseMethod.OnGenericType(weakListenerType))
+            );
 
             foreach (var instructionInfo in eventInfo.Instructions)
             {

@@ -2,21 +2,21 @@
 {
     using System;
     using System.Collections.Generic;
-    using System.Reflection;
     using System.Threading;
 
     using JetBrains.Annotations;
 
+    #if NET40
     internal static class Volatile
     {
         public static T Read<T>(ref T value)
         {
-            // return Volatile.Read(value);
             return value;
         }
     }
+    #endif
 
-    public class WeakEventListener<TSource, TTarget, TEventArgs> where TEventArgs : EventArgs
+    internal class WeakEventListener<TSource, TTarget, TEventArgs> where TEventArgs : EventArgs
         where TSource : class 
     {
         /// <summary>
@@ -43,11 +43,6 @@
         /// <summary>
         /// Initializes a new instances of the WeakEventListener class that references the source but not the target.
         /// </summary>
-        public WeakEventListener([NotNull] Action<object, TEventArgs> method, [NotNull] Action<TSource, EventHandler<TEventArgs>> add, [NotNull] Action<TSource, EventHandler<TEventArgs>> remove)
-            : this(method.Target, (Action<TTarget, object, TEventArgs>)Delegate.CreateDelegate(typeof(Action<TTarget, object, TEventArgs>), null, method.Method), add, remove)
-        {
-        }
-
         public WeakEventListener(object targetObject, [NotNull] Action<TTarget, object, TEventArgs> targetDelegate, [NotNull] Action<TSource, EventHandler<TEventArgs>> add, [NotNull] Action<TSource, EventHandler<TEventArgs>> remove)
         {
             _weakTarget = new WeakReference(targetObject);

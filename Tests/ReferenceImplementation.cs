@@ -1,9 +1,6 @@
 ﻿namespace Template
 {
     using System;
-    using System.Reflection;
-
-    using JetBrains.Annotations;
 
     public class MyCancelEventArgs : EventArgs
     {
@@ -113,6 +110,8 @@
 
     namespace Weak
     {
+        using JetBrains.Annotations;
+
         using WeakEventHandler;
 
         public class EventTarget : IEventTarget
@@ -159,9 +158,15 @@
                 _source = source;
                 _eventTracer = eventTracer;
 
-                _source_EventA_Listener = new WeakEventListener<EventSource, EventTarget, EventArgs>(Source_EventA, Source_EventA_Add, Source_EventA_Remove);
-                _source_EventB_Listener = new WeakEventListener<EventSource, EventTarget, MyCancelEventArgs>(Source_EventB, Source_EventB_Add, Source_EventB_Remove);
-                _source_EventC_Listener = new WeakEventListener<EventSource, EventTarget, EventArgs>(Source_EventA, Source_EventC_Add, Source_EventC_Remove);
+                Action<object, EventArgs> sourceEventADelegate = Source_EventA;
+                Action<object, MyCancelEventArgs> sourceEventBDelegate = Source_EventB;
+
+                var a = (Action<EventTarget, object, EventArgs>)Delegate.CreateDelegate(typeof(Action<EventTarget, object, EventArgs>), null, sourceEventADelegate.Method);
+                var b = (Action<EventTarget, object, MyCancelEventArgs>)Delegate.CreateDelegate(typeof(Action<EventTarget, object, MyCancelEventArgs>), null, sourceEventBDelegate.Method);
+
+                _source_EventA_Listener = new WeakEventListener<EventSource, EventTarget, EventArgs>(this, a, Source_EventA_Add, Source_EventA_Remove);
+                _source_EventB_Listener = new WeakEventListener<EventSource, EventTarget, MyCancelEventArgs>(this, b, Source_EventB_Add, Source_EventB_Remove);
+                _source_EventC_Listener = new WeakEventListener<EventSource, EventTarget, EventArgs>(this, a, Source_EventC_Add, Source_EventC_Remove);
             }
 
             public void Subscribe()

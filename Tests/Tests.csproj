@@ -6,6 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\WeakEventHandler\WeakEventListener.cs" Link="WeakEventListener.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Fody" Version="3.3.4">
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
