@@ -7,6 +7,7 @@
   <ItemGroup>
     <Compile Include="..\FodyTools\FodyTools\AbstractModuleWeaver.cs" Link="AbstractModuleWeaver.cs" />
     <Compile Include="..\FodyTools\FodyTools\AttributeExtensionMethods.cs" Link="AttributeExtensionMethods.cs" />
+    <Compile Include="..\FodyTools\FodyTools\CodeImporter.cs" Link="CodeImporter.cs" />
     <Compile Include="..\FodyTools\FodyTools\CollectionExtensionMethods.cs" Link="CollectionExtensionMethods.cs" />
     <Compile Include="..\FodyTools\FodyTools\MemberExtensionMethods.cs" Link="MemberExtensionMethods.cs" />
     <Compile Include="..\FodyTools\FodyTools\TypeExtensionMethods.cs" Link="TypeExtensionMethods.cs" />
@@ -14,7 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FodyHelpers" Version="3.3.0" />
+    <PackageReference Include="FodyHelpers" Version="3.3.4" />
   </ItemGroup>
 
 </Project>

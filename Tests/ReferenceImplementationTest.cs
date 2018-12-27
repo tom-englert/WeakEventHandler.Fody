@@ -193,14 +193,14 @@
         }
 
         private IEventTarget CreateTarget<T>(TargetKind targetKind, [NotNull] T source, [NotNull] Action<string> eventTracer)
-            where T : IEventSource
+            where T : EventSource
         {
             switch (targetKind)
             {
                 case TargetKind.Original:
                     return new Template.Original.EventTarget(source, eventTracer);
                 case TargetKind.Weak:
-                    return new Template.Weak.EventTarget<T>(source, eventTracer);
+                    return new Template.Weak.EventTarget(source, eventTracer);
                 case TargetKind.Fody:
                     return new Template.Fody.EventTarget(source, eventTracer);
             }
@@ -210,7 +210,21 @@
 
         private bool IsWeak(TargetKind targetKind)
         {
-            return targetKind == TargetKind.Weak;
+            return targetKind != TargetKind.Original;
+        }
+
+        class A
+        {
+            public void Add(EventHandler<EventArgs> item)
+            {
+
+            }
+        }
+
+        private void Sample()
+        {
+            var a = new A();
+            var x = new Action<EventHandler<EventArgs>>(a.Add);
         }
     }
 }

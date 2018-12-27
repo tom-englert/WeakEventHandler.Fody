@@ -1,4 +1,4 @@
-﻿namespace Template
+﻿namespace WeakEventHandler
 {
     using System;
     using System.Collections.Generic;
@@ -16,7 +16,8 @@
         }
     }
 
-    public class WeakEventListener<TTarget, TEventArgs> where TEventArgs : EventArgs
+    public class WeakEventListener<TSource, TTarget, TEventArgs> where TEventArgs : EventArgs
+        where TSource : class 
     {
         /// <summary>
         /// WeakReference to the object listening for the event.
@@ -27,8 +28,14 @@
         [NotNull]
         private readonly Action<TTarget, object, TEventArgs> _targetDelegate;
 
+        [NotNull]
+        private readonly Action<TSource, EventHandler<TEventArgs>> _add;
+
+        [NotNull]
+        private readonly Action<TSource, EventHandler<TEventArgs>> _remove;
+
         [NotNull, ItemNotNull]
-        private List<Subscription> _subscriptions = new List<Subscription>();
+        private List<TSource> _subscriptions = new List<TSource>();
 
         [NotNull]
         private readonly EventHandler<TEventArgs> _eventDelegate;
@@ -36,15 +43,17 @@
         /// <summary>
         /// Initializes a new instances of the WeakEventListener class that references the source but not the target.
         /// </summary>
-        public WeakEventListener(Action<object, TEventArgs> method)
-            : this(method.Target, (Action<TTarget, object, TEventArgs>)Delegate.CreateDelegate(typeof(Action<TTarget, object, TEventArgs>), null, method.Method))
+        public WeakEventListener([NotNull] Action<object, TEventArgs> method, [NotNull] Action<TSource, EventHandler<TEventArgs>> add, [NotNull] Action<TSource, EventHandler<TEventArgs>> remove)
+            : this(method.Target, (Action<TTarget, object, TEventArgs>)Delegate.CreateDelegate(typeof(Action<TTarget, object, TEventArgs>), null, method.Method), add, remove)
         {
         }
 
-        public WeakEventListener(object targetObject, Action<TTarget, object, TEventArgs> targetDelegate)
+        public WeakEventListener(object targetObject, [NotNull] Action<TTarget, object, TEventArgs> targetDelegate, [NotNull] Action<TSource, EventHandler<TEventArgs>> add, [NotNull] Action<TSource, EventHandler<TEventArgs>> remove)
         {
             _weakTarget = new WeakReference(targetObject);
             _targetDelegate = targetDelegate;
+            _add = add;
+            _remove = remove;
             _eventDelegate = OnEvent;
         }
 
@@ -61,15 +70,13 @@
             _targetDelegate(target, sender, e);
         }
 
-        public void Subscribe<T>([NotNull] T source, Action<T, EventHandler<TEventArgs>> add, Action<T, EventHandler<TEventArgs>> remove)
+        public void Subscribe([NotNull] TSource source)
         {
-            var subscription = new Subscription<T>(source, remove);
-
             var oldList = Volatile.Read(ref _subscriptions);
 
             while (true)
             {
-                var newList = new List<Subscription>(oldList) { subscription };
+                var newList = new List<TSource>(oldList) { source };
 
                 if (Interlocked.CompareExchange(ref _subscriptions, newList, oldList) == oldList)
                     break;
@@ -77,24 +84,18 @@
                 oldList = Volatile.Read(ref _subscriptions);
             }
 
-            add(source, _eventDelegate);
+            _add(source, _eventDelegate);
         }
 
-        public void Unsubscribe<T>([NotNull] T source, Action<T, EventHandler<TEventArgs>> remove)
+        public void Unsubscribe([NotNull] TSource source)
         {
             var oldList = Volatile.Read(ref _subscriptions);
 
             while (true)
             {
-                var newList = new List<Subscription>(oldList);
-                for (var i = 0; i < newList.Count; i++)
-                {
-                    if (!newList[i].Matches(source, remove.Method))
-                        continue;
+                var newList = new List<TSource>(oldList);
 
-                    newList.RemoveAt(i);
-                    break;
-                }
+                newList.Remove(source);
 
                 if (Interlocked.CompareExchange(ref _subscriptions, newList, oldList) == oldList)
                     break;
@@ -102,51 +103,14 @@
                 oldList = Volatile.Read(ref _subscriptions);
             }
 
-            remove(source, _eventDelegate);
+            _remove(source, _eventDelegate);
         }
 
         public void Release()
         {
             foreach (var subscription in _subscriptions)
             {
-                subscription.RemoveEventHandler(_eventDelegate);
-            }
-        }
-
-        private abstract class Subscription
-        {
-            [NotNull]
-            protected readonly object _source;
-            private readonly MethodInfo  _remove;
-
-            protected Subscription([NotNull] object source, MethodInfo remove)
-            {
-                _source = source;
-                _remove = remove;
-            }
-
-            public bool Matches([NotNull] object source, MethodInfo remove)
-            {
-                return ReferenceEquals(source, _source) && (remove == _remove);
-            }
-
-            public abstract void RemoveEventHandler([NotNull] EventHandler<TEventArgs> eventDelegate);
-        }
-
-        private class Subscription<T> : Subscription
-        {
-            [NotNull]
-            private readonly Action<T, EventHandler<TEventArgs>>  _remove;
-
-            public Subscription([NotNull] T source, Action<T, EventHandler<TEventArgs>> remove)
-                : base(source, remove.Method)
-            {
-                _remove = remove;
-            }
-
-            public override void RemoveEventHandler([NotNull] EventHandler<TEventArgs> eventDelegate)
-            {
-                _remove((T)_source, eventDelegate);
+                _remove(subscription, _eventDelegate);
             }
         }
     }
