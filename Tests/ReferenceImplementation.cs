@@ -108,34 +108,34 @@
             }
 
             [NotNull]
-            private readonly WeakEventListener<EventSource, EventTarget, EventArgs> _source_EventA_Listener;
+            private readonly WeakEventAdapter<EventSource, EventTarget, EventArgs> _sourceEventAAdapter;
             [NotNull]
-            private readonly WeakEventListener<EventSource, EventTarget, MyCancelEventArgs> _source_EventB_Listener;
+            private readonly WeakEventAdapter<EventSource, EventTarget, MyCancelEventArgs> _sourceEventBAdapter;
             [NotNull]
-            private readonly WeakEventListener<EventSource, EventTarget, EventArgs> _source_EventC_Listener;
+            private readonly WeakEventAdapter<EventSource, EventTarget, EventArgs> _sourceEventCAdapter;
 
             public EventTarget([NotNull] EventSource source, [NotNull] Action<string> eventTracer)
             {
                 _source = source;
                 _eventTracer = eventTracer;
 
-                _source_EventA_Listener = new WeakEventListener<EventSource, EventTarget, EventArgs>(this, GetStaticDelegate<EventArgs>(Source_EventA), Source_EventA_Add, Source_EventA_Remove);
-                _source_EventB_Listener = new WeakEventListener<EventSource, EventTarget, MyCancelEventArgs>(this, GetStaticDelegate<MyCancelEventArgs>(Source_EventB), Source_EventB_Add, Source_EventB_Remove);
-                _source_EventC_Listener = new WeakEventListener<EventSource, EventTarget, EventArgs>(this, GetStaticDelegate<EventArgs>(Source_EventA), Source_EventC_Add, Source_EventC_Remove);
+                _sourceEventAAdapter = new WeakEventAdapter<EventSource, EventTarget, EventArgs>(this, GetStaticDelegate<EventArgs>(Source_EventA), Source_EventA_Add, Source_EventA_Remove);
+                _sourceEventBAdapter = new WeakEventAdapter<EventSource, EventTarget, MyCancelEventArgs>(this, GetStaticDelegate<MyCancelEventArgs>(Source_EventB), Source_EventB_Add, Source_EventB_Remove);
+                _sourceEventCAdapter = new WeakEventAdapter<EventSource, EventTarget, EventArgs>(this, GetStaticDelegate<EventArgs>(Source_EventA), Source_EventC_Add, Source_EventC_Remove);
             }
 
             public void Subscribe()
             {
-                _source_EventA_Listener.Subscribe(_source);
-                _source_EventB_Listener.Subscribe(_source);
-                _source_EventC_Listener.Subscribe(_source);
+                _sourceEventAAdapter.Subscribe(_source);
+                _sourceEventBAdapter.Subscribe(_source);
+                _sourceEventCAdapter.Subscribe(_source);
             }
 
             public void Unsubscribe()
             {
-                _source_EventA_Listener.Unsubscribe(_source);
-                _source_EventB_Listener.Unsubscribe(_source);
-                _source_EventC_Listener.Unsubscribe(_source);
+                _sourceEventAAdapter.Unsubscribe(_source);
+                _sourceEventBAdapter.Unsubscribe(_source);
+                _sourceEventCAdapter.Unsubscribe(_source);
             }
 
             private void Source_EventA(object sender, EventArgs e)
@@ -157,9 +157,9 @@
 
             ~EventTarget()
             {
-                _source_EventA_Listener.Release();
-                _source_EventB_Listener.Release();
-                _source_EventC_Listener.Release();
+                _sourceEventAAdapter.Release();
+                _sourceEventBAdapter.Release();
+                _sourceEventCAdapter.Release();
             }
         }
     }

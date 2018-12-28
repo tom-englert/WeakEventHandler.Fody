@@ -1,7 +1,6 @@
 ﻿namespace WeakEventHandler.Fody
 {
     using System.Collections.Generic;
-    using System.Diagnostics;
     using System.Linq;
 
     using FodyTools;
@@ -17,7 +16,7 @@
 
         public override void Execute()
         {
-            // Debugger.Launch();
+            // System.Diagnostics.Debugger.Launch();
 
             WeakEventHandlerWeaver.Weave(ModuleDefinition, this);
         }

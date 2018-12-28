@@ -1,12 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>Net46</TargetFramework>
+    <TargetFrameworks>Net46;netcoreapp2.0</TargetFrameworks>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\WeakEventHandler\WeakEventListener.cs" Link="WeakEventListener.cs" />
+    <Compile Include="..\WeakEventHandler\WeakEventAdapter.cs" Link="WeakEventAdapter.cs" />
   </ItemGroup>
 
   <ItemGroup>

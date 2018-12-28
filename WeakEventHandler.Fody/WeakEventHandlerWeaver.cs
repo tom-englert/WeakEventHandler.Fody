@@ -1,6 +1,7 @@
 ﻿namespace WeakEventHandler.Fody
 {
     using System;
+    using System.CodeDom.Compiler;
     using System.Collections.Generic;
     using System.Linq;
 
@@ -28,21 +29,22 @@
         private readonly MethodReference _action3Constructor;
         [NotNull]
         private readonly TypeReference _eventHandlerType;
+        [NotNull]
+        private readonly CustomAttribute _generatedCodeAttribute;
 
         [NotNull]
-        private readonly TypeDefinition _weakListenerType;
+        private readonly TypeDefinition _weakAdapterType;
         [NotNull]
-        private readonly MethodDefinition _weakListenerConstructor;
+        private readonly MethodDefinition _weakAdapterConstructor;
         [NotNull]
-        private readonly MethodDefinition _weakListenerSubscribeMethod;
+        private readonly MethodDefinition _weakAdapterSubscribeMethod;
         [NotNull]
-        private readonly MethodDefinition _weakListenerUnsubscribeMethod;
+        private readonly MethodDefinition _weakAdapterUnsubscribeMethod;
         [NotNull]
-        private readonly MethodDefinition _weakListenerReleaseMethod;
+        private readonly MethodDefinition _weakAdapterReleaseMethod;
 
         [NotNull]
         private readonly ModuleDefinition _moduleDefinition;
-
         [NotNull]
         private readonly ITypeSystem _typeSystem;
 
@@ -63,18 +65,20 @@
 
             var makeWeakAttribute = makeWeakAttributeReference.Resolve();
 
-            var listenerSource = makeWeakAttribute.Module.Types.Single(t => t.Name == "WeakEventListener`3");
+            var listenerSource = makeWeakAttribute.Module.Types.Single(t => t.Name == "WeakEventAdapter`3");
 
             var codeImporter = new CodeImporter(moduleDefinition) { NamespaceDecorator = value => "<>" + value };
 
-            _weakListenerType = codeImporter.Import(listenerSource);
-            _weakListenerConstructor = _weakListenerType.GetConstructors().Single(ctor => ctor.Parameters.Count == 4);
+            _weakAdapterType = codeImporter.Import(listenerSource);
+            _weakAdapterConstructor = _weakAdapterType.GetConstructors().Single(ctor => ctor.Parameters.Count == 4);
 
-            var weakListenerMethods = _weakListenerType.GetMethods();
+            _generatedCodeAttribute = _weakAdapterType.CustomAttributes.First(attr => attr.AttributeType.Name == nameof(GeneratedCodeAttribute));
 
-            _weakListenerSubscribeMethod = weakListenerMethods.Single(method => method.Name == "Subscribe");
-            _weakListenerUnsubscribeMethod = weakListenerMethods.Single(method => method.Name == "Unsubscribe");
-            _weakListenerReleaseMethod = weakListenerMethods.Single(method => method.Name == "Release");
+            var weakAdapterMethods = _weakAdapterType.GetMethods();
+
+            _weakAdapterSubscribeMethod = weakAdapterMethods.Single(method => method.Name == "Subscribe");
+            _weakAdapterUnsubscribeMethod = weakAdapterMethods.Single(method => method.Name == "Unsubscribe");
+            _weakAdapterReleaseMethod = weakAdapterMethods.Single(method => method.Name == "Release");
 
             _action2Type = typeSystem.ImportType<Action<object, EventArgs>>();
             _action2Constructor = typeSystem.ImportMethod<Action<object, EventArgs>, object, IntPtr>(".ctor");
@@ -157,8 +161,8 @@
 
             var eventArgsType = _moduleDefinition.ImportReference(eventSinkMethod.Parameters[1].ParameterType);
 
-            var weakListenerType = _weakListenerType.MakeGenericInstanceType(sourceType, targetType, eventArgsType);
-            var weakListenerConstructor = _weakListenerConstructor.OnGenericType(weakListenerType);
+            var weakAdapterType = _weakAdapterType.MakeGenericInstanceType(sourceType, targetType, eventArgsType);
+            var weakAdapterConstructor = _weakAdapterConstructor.OnGenericType(weakAdapterType);
 
             var eventSinkActionType = _action3Type.MakeGenericInstanceType(targetType, _typeSystem.TypeSystem.ObjectReference, eventArgsType);
             var eventSinkActionConstructor = _action3Constructor.OnGenericType(eventSinkActionType);
@@ -167,11 +171,12 @@
             var eventHandlerAdapterActionType = _action2Type.MakeGenericInstanceType(sourceType, eventHandlerType);
             var eventHandlerAdapterActionConstructor = _action2Constructor.OnGenericType(eventHandlerAdapterActionType);
 
-            var weakListenerField = new FieldDefinition($"{eventInfo}>Listener", FieldAttributes.InitOnly | FieldAttributes.Private | FieldAttributes.NotSerialized, weakListenerType);
-            targetType.Fields.Add(weakListenerField);
+            var weakAdapterField = new FieldDefinition($"{eventInfo}>Adapter", FieldAttributes.InitOnly | FieldAttributes.Private | FieldAttributes.NotSerialized, weakAdapterType);
+            weakAdapterField.CustomAttributes.Add(_generatedCodeAttribute);
+            targetType.Fields.Add(weakAdapterField);
 
-            var addMethodAdapter = CreateStaticAddRemoveAdapter(eventInfo, sourceType, eventHandlerType, ">Add", _moduleDefinition.ImportReference(sourceEvent.AddMethod));
-            var removeMethodAdapter = CreateStaticAddRemoveAdapter(eventInfo, sourceType, eventHandlerType, ">Remove", _moduleDefinition.ImportReference(sourceEvent.RemoveMethod));
+            var addMethodAdapter = CreateStaticAddRemoveMethod(sourceType, eventHandlerType, eventInfo + ">Add", _moduleDefinition.ImportReference(sourceEvent.AddMethod));
+            var removeMethodAdapter = CreateStaticAddRemoveMethod(sourceType, eventHandlerType, eventInfo + ">Remove", _moduleDefinition.ImportReference(sourceEvent.RemoveMethod));
 
             targetType.Methods.Add(addMethodAdapter);
             targetType.Methods.Add(removeMethodAdapter);
@@ -195,15 +200,15 @@
                 Instruction.Create(OpCodes.Ldftn, removeMethodAdapter),
                 Instruction.Create(OpCodes.Newobj, eventHandlerAdapterActionConstructor),
 
-                Instruction.Create(OpCodes.Newobj, weakListenerConstructor),
+                Instruction.Create(OpCodes.Newobj, weakAdapterConstructor),
 
-                Instruction.Create(OpCodes.Stfld, weakListenerField)
+                Instruction.Create(OpCodes.Stfld, weakAdapterField)
             });
 
             targetType.InsertIntoFinalizer(
                 Instruction.Create(OpCodes.Ldarg_0),
-                Instruction.Create(OpCodes.Ldfld, weakListenerField),
-                Instruction.Create(OpCodes.Callvirt, _weakListenerReleaseMethod.OnGenericType(weakListenerType))
+                Instruction.Create(OpCodes.Ldfld, weakAdapterField),
+                Instruction.Create(OpCodes.Callvirt, _weakAdapterReleaseMethod.OnGenericType(weakAdapterType))
             );
 
             foreach (var instructionInfo in eventInfo.Instructions)
@@ -213,7 +218,7 @@
 
                 var index = instructions.IndexOf(instruction) - 2;
 
-                instructions.Insert(index++, Instruction.Create(OpCodes.Ldfld, weakListenerField));
+                instructions.Insert(index++, Instruction.Create(OpCodes.Ldfld, weakAdapterField));
                 instructions.Insert(index++, Instruction.Create(OpCodes.Ldarg_0));
                 index += 1;
 
@@ -222,16 +227,17 @@
                 instructions.RemoveAt(index);
                 instructions.RemoveAt(index);
 
-                var method = instructionInfo.EventRegistration == EventRegistration.Add ? _weakListenerSubscribeMethod : _weakListenerUnsubscribeMethod;
+                var method = instructionInfo.EventRegistration == EventRegistration.Add ? _weakAdapterSubscribeMethod : _weakAdapterUnsubscribeMethod;
 
-                instructions.Insert(index, Instruction.Create(OpCodes.Callvirt, method.OnGenericType(weakListenerType)));
+                instructions.Insert(index, Instruction.Create(OpCodes.Callvirt, method.OnGenericType(weakAdapterType)));
             }
         }
 
         [NotNull]
-        private MethodDefinition CreateStaticAddRemoveAdapter([NotNull] EventInfo eventInfo, [NotNull] TypeReference sourceType, [NotNull] GenericInstanceType eventHandlerType, [NotNull] string suffix, [NotNull] MethodReference addOrRemoveMethod)
+        private MethodDefinition CreateStaticAddRemoveMethod([NotNull] TypeReference sourceType, [NotNull] TypeReference eventHandlerType, [NotNull] string name, [NotNull] MethodReference addOrRemoveMethod)
         {
-            var method = new MethodDefinition(eventInfo + suffix, MethodAttributes.Private | MethodAttributes.Static | MethodAttributes.HideBySig, _typeSystem.TypeSystem.VoidReference);
+            var method = new MethodDefinition(name, MethodAttributes.Private | MethodAttributes.Static | MethodAttributes.HideBySig, _typeSystem.TypeSystem.VoidReference);
+            method.CustomAttributes.Add(_generatedCodeAttribute);
 
             method.Parameters.Add(new ParameterDefinition("source", ParameterAttributes.In, sourceType));
             method.Parameters.Add(new ParameterDefinition("handler", ParameterAttributes.In, eventHandlerType));

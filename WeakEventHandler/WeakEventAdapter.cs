@@ -1,38 +1,32 @@
 ﻿namespace WeakEventHandler
 {
     using System;
+    using System.CodeDom.Compiler;
     using System.Collections.Generic;
     using System.Threading;
 
     using JetBrains.Annotations;
 
-#if NET40
-    internal static class Volatile
-    {
-        public static T Read<T>(ref T value)
-        {
-            return value;
-        }
-    }
-#endif
-
-    internal class WeakEventListener<TSource, TTarget, TEventArgs> where TEventArgs : EventArgs
+    [GeneratedCode("WeakEventHandler.Fody", "1.0")]
+    internal class WeakEventAdapter<TSource, TTarget, TEventArgs>
+        where TEventArgs : EventArgs
         where TSource : class
+        where TTarget : class
     {
         /// <summary>
         /// WeakReference to the object listening for the event.
         /// </summary>
         [NotNull]
-        private readonly WeakReference _weakTarget;
+        private readonly WeakReference<TTarget> _weakTarget;
 
         [NotNull]
         private readonly Action<TTarget, object, TEventArgs> _targetDelegate;
 
         [NotNull]
-        private readonly Action<TSource, EventHandler<TEventArgs>> _add;
+        private readonly Action<TSource, EventHandler<TEventArgs>> _addDelegate;
 
         [NotNull]
-        private readonly Action<TSource, EventHandler<TEventArgs>> _remove;
+        private readonly Action<TSource, EventHandler<TEventArgs>> _removeDelegate;
 
         [NotNull, ItemNotNull]
         private List<TSource> _subscriptions = new List<TSource>();
@@ -40,23 +34,18 @@
         [NotNull]
         private readonly EventHandler<TEventArgs> _eventDelegate;
 
-        /// <summary>
-        /// Initializes a new instances of the WeakEventListener class that references the source but not the target.
-        /// </summary>
-        public WeakEventListener(object targetObject, [NotNull] Action<TTarget, object, TEventArgs> targetDelegate, [NotNull] Action<TSource, EventHandler<TEventArgs>> add, [NotNull] Action<TSource, EventHandler<TEventArgs>> remove)
+        public WeakEventAdapter(TTarget targetObject, [NotNull] Action<TTarget, object, TEventArgs> targetDelegate, [NotNull] Action<TSource, EventHandler<TEventArgs>> addDelegate, [NotNull] Action<TSource, EventHandler<TEventArgs>> removeDelegate)
         {
-            _weakTarget = new WeakReference(targetObject);
+            _weakTarget = new WeakReference<TTarget>(targetObject);
             _targetDelegate = targetDelegate;
-            _add = add;
-            _remove = remove;
+            _addDelegate = addDelegate;
+            _removeDelegate = removeDelegate;
             _eventDelegate = OnEvent;
         }
 
         private void OnEvent(object sender, TEventArgs e)
         {
-            var target = (TTarget)_weakTarget.Target;
-
-            if (target == null)
+            if (!_weakTarget.TryGetTarget(out var target))
             {
                 Release();
                 return;
@@ -79,7 +68,7 @@
                 oldList = Volatile.Read(ref _subscriptions);
             }
 
-            _add(source, _eventDelegate);
+            _addDelegate(source, _eventDelegate);
         }
 
         public void Unsubscribe([NotNull] TSource source)
@@ -98,15 +87,42 @@
                 oldList = Volatile.Read(ref _subscriptions);
             }
 
-            _remove(source, _eventDelegate);
+            _removeDelegate(source, _eventDelegate);
         }
 
         public void Release()
         {
             foreach (var subscription in _subscriptions)
             {
-                _remove(subscription, _eventDelegate);
+                _removeDelegate(subscription, _eventDelegate);
             }
         }
+
+#if NET40
+
+        private static class Volatile
+        {
+            public static T Read<T>(ref T value)
+            {
+                return value;
+            }
+        }
+
+        private class WeakReference<T> : WeakReference
+            where T : class
+        {
+            public WeakReference(T target) 
+                : base(target)
+            {
+            }
+
+            public bool TryGetTarget(out T target)
+            {
+                target = Target as T;
+                return target != null;
+            }
+        }
+
+#endif
     }
 }
