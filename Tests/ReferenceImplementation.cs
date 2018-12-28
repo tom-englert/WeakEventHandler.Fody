@@ -1,16 +1,7 @@
 ﻿namespace Template
 {
     using System;
-
-    public class MyCancelEventArgs : EventArgs
-    {
-        public MyCancelEventArgs(bool cancel)
-        {
-            Cancel = cancel;
-        }
-
-        public bool Cancel { get; }
-    }
+    using Common;
 
     public interface IEventTarget
     {
@@ -23,36 +14,6 @@
         Original,
         Weak,
         Fody
-    }
-
-    public class EventSource
-    {
-        public event EventHandler<EventArgs> EventA;
-        public event EventHandler<MyCancelEventArgs> EventB;
-        public event EventHandler<EventArgs> EventC;
-
-        public void OnEventA1()
-        {
-            EventA?.Invoke(this, EventArgs.Empty);
-        }
-
-        public void OnEventA2(EventArgs e)
-        {
-            EventA?.Invoke(this, e);
-        }
-
-        public void OnEventB(bool value)
-        {
-            EventB?.Invoke(this, new MyCancelEventArgs(value));
-        }
-    }
-
-    public class EventSource2 : EventSource
-    {
-        ~EventSource2()
-        {
-            throw new NotImplementedException();
-        }
     }
 
     namespace Original
@@ -158,15 +119,9 @@
                 _source = source;
                 _eventTracer = eventTracer;
 
-                Action<object, EventArgs> sourceEventADelegate = Source_EventA;
-                Action<object, MyCancelEventArgs> sourceEventBDelegate = Source_EventB;
-
-                var a = (Action<EventTarget, object, EventArgs>)Delegate.CreateDelegate(typeof(Action<EventTarget, object, EventArgs>), null, sourceEventADelegate.Method);
-                var b = (Action<EventTarget, object, MyCancelEventArgs>)Delegate.CreateDelegate(typeof(Action<EventTarget, object, MyCancelEventArgs>), null, sourceEventBDelegate.Method);
-
-                _source_EventA_Listener = new WeakEventListener<EventSource, EventTarget, EventArgs>(this, a, Source_EventA_Add, Source_EventA_Remove);
-                _source_EventB_Listener = new WeakEventListener<EventSource, EventTarget, MyCancelEventArgs>(this, b, Source_EventB_Add, Source_EventB_Remove);
-                _source_EventC_Listener = new WeakEventListener<EventSource, EventTarget, EventArgs>(this, a, Source_EventC_Add, Source_EventC_Remove);
+                _source_EventA_Listener = new WeakEventListener<EventSource, EventTarget, EventArgs>(this, GetStaticDelegate<EventArgs>(Source_EventA), Source_EventA_Add, Source_EventA_Remove);
+                _source_EventB_Listener = new WeakEventListener<EventSource, EventTarget, MyCancelEventArgs>(this, GetStaticDelegate<MyCancelEventArgs>(Source_EventB), Source_EventB_Add, Source_EventB_Remove);
+                _source_EventC_Listener = new WeakEventListener<EventSource, EventTarget, EventArgs>(this, GetStaticDelegate<EventArgs>(Source_EventA), Source_EventC_Add, Source_EventC_Remove);
             }
 
             public void Subscribe()
@@ -191,6 +146,13 @@
             private void Source_EventB(object sender, [NotNull] MyCancelEventArgs e)
             {
                 _eventTracer("EventB " + e.Cancel);
+            }
+
+            [NotNull]
+            private Action<EventTarget, object, T> GetStaticDelegate<T>([NotNull] Action<object, T> instanceDelegate)
+                where T : EventArgs
+            {
+                return (Action<EventTarget, object, T>)Delegate.CreateDelegate(typeof(Action<EventTarget, object, T>), null, instanceDelegate.Method);
             }
 
             ~EventTarget()

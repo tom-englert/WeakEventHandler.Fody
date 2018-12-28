@@ -6,7 +6,7 @@
 
     using JetBrains.Annotations;
 
-    #if NET40
+#if NET40
     internal static class Volatile
     {
         public static T Read<T>(ref T value)
@@ -14,10 +14,10 @@
             return value;
         }
     }
-    #endif
+#endif
 
     internal class WeakEventListener<TSource, TTarget, TEventArgs> where TEventArgs : EventArgs
-        where TSource : class 
+        where TSource : class
     {
         /// <summary>
         /// WeakReference to the object listening for the event.
