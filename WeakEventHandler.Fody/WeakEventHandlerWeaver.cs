@@ -216,16 +216,38 @@
                 var instruction = instructionInfo.Instruction;
                 var instructions = instructionInfo.Collection;
 
-                var index = instructions.IndexOf(instruction) - 2;
+                int indexOfEventHandler;
+                var index = indexOfEventHandler = instructions.IndexOf(instruction);
 
-                instructions.Insert(index++, Instruction.Create(OpCodes.Ldfld, weakAdapterField));
-                instructions.Insert(index++, Instruction.Create(OpCodes.Ldarg_0));
-                index += 1;
+                var stackSize = -2; // new EventHandler() takes 2 args
 
-                instructions.RemoveAt(index);
-                instructions.RemoveAt(index);
-                instructions.RemoveAt(index);
-                instructions.RemoveAt(index);
+                while (stackSize < 0)
+                {
+                    index -= 1;
+                    if (index < 0)
+                        throw new InvalidOperationException("Unable to crawl back call stack.");
+
+                    instructions[index].ComputeStackDelta(ref stackSize);
+                }
+
+                if (instructions[index].OpCode == OpCodes.Ldarg_0) // keep this instruction at top, probably used as sequence point in debug info.
+                {
+                    index++;
+                    instructions.Insert(index++, Instruction.Create(OpCodes.Ldfld, weakAdapterField));
+                    instructions.Insert(index++, Instruction.Create(OpCodes.Ldarg_0));
+                }
+                else
+                {
+                    instructions.Insert(index++, Instruction.Create(OpCodes.Ldarg_0));
+                    instructions.Insert(index++, Instruction.Create(OpCodes.Ldfld, weakAdapterField));
+                }
+
+                index = indexOfEventHandler + 1;
+
+                instructions.RemoveAt(index, OpCodes.Ldarg_0);
+                instructions.RemoveAt(index, OpCodes.Ldftn);
+                instructions.RemoveAt(index, OpCodes.Newobj);
+                instructions.RemoveAt(index, OpCodes.Callvirt);
 
                 var method = instructionInfo.EventRegistration == EventRegistration.Add ? _weakAdapterSubscribeMethod : _weakAdapterUnsubscribeMethod;
 
@@ -245,7 +267,7 @@
             method.Body.Instructions.AddRange(
                 Instruction.Create(OpCodes.Ldarg_0),
                 Instruction.Create(OpCodes.Ldarg_1),
-                Instruction.Create(OpCodes.Callvirt,addOrRemoveMethod),
+                Instruction.Create(OpCodes.Callvirt, addOrRemoveMethod),
                 Instruction.Create(OpCodes.Ret)
             );
 

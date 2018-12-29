@@ -4,6 +4,8 @@
 
     using Common;
 
+    using JetBrains.Annotations;
+
     public class EventTarget
     {
         private readonly EventSource _source;
@@ -17,14 +19,15 @@
 
         public void Subscribe()
         {
-            _source.EventA += Source_EventA;
+            GetSource(GetTarget(this)).EventA += Source_EventA;
+            
             _source.EventB += Source_EventB;
             _source.EventC += Source_EventA;
         }
 
         public void Unsubscribe()
         {
-            _source.EventA -= Source_EventA;
+            GetSource(GetTarget(this)).EventA -= Source_EventA;
             _source.EventB -= Source_EventB;
             _source.EventC -= Source_EventA;
         }
@@ -39,6 +42,16 @@
         private void Source_EventB(object sender, MyCancelEventArgs e)
         {
             _eventTracer("EventB " + e.Cancel);
+        }
+
+        private static EventSource GetSource([NotNull] EventTarget target)
+        {
+            return target._source;
+        }
+
+        private static EventTarget GetTarget([NotNull] EventTarget target)
+        {
+            return target;
         }
     }
 }
