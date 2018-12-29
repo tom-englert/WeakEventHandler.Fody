@@ -63,8 +63,6 @@
 
         private WeakEventHandlerWeaver([NotNull] ModuleDefinition moduleDefinition, [NotNull] ITypeSystem typeSystem, [NotNull] ILogger logger, [NotNull] TypeReference makeWeakAttributeReference)
         {
-            // Debugger.Launch();
-
             _moduleDefinition = moduleDefinition;
             _typeSystem = typeSystem;
             _logger = logger;
@@ -256,12 +254,12 @@
                 {
                     index++;
                     instructions.Insert(index++, Instruction.Create(OpCodes.Ldfld, weakAdapterField));
-                    instructions.Insert(index++, Instruction.Create(OpCodes.Ldarg_0));
+                    instructions.Insert(index, Instruction.Create(OpCodes.Ldarg_0));
                 }
                 else
                 {
                     instructions.Insert(index++, Instruction.Create(OpCodes.Ldarg_0));
-                    instructions.Insert(index++, Instruction.Create(OpCodes.Ldfld, weakAdapterField));
+                    instructions.Insert(index, Instruction.Create(OpCodes.Ldfld, weakAdapterField));
                 }
 
                 index = indexOfEventHandler + 1;

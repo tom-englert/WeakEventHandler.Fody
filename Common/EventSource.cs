@@ -34,5 +34,10 @@ namespace Common
         {
             EventB?.Invoke(this, new MyCancelEventArgs(value));
         }
+
+        public void OnEventC()
+        {
+            EventC?.Invoke(this, EventArgs.Empty);
+        }
     }
 }

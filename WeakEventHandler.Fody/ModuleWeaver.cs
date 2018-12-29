@@ -16,7 +16,7 @@
 
         public override void Execute()
         {
-            // System.Diagnostics.Debugger.Launch();
+            // System.Diagnostics.Debugger.Launch(); // to enable inline debugging
 
             WeakEventHandlerWeaver.Weave(ModuleDefinition, this, this);
         }
