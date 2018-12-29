@@ -1,4 +1,4 @@
-### This is an add-in for [Fody](https://github.com/Fody/Fody/) [![NuGet Status](http://img.shields.io/nuget/v/WeakEventHandler.Fody.svg?style=flat)](https://www.nuget.org/packages/WeakEventHandler.Fody/) 
+### This is an add-in for [Fody](https://github.com/Fody/Fody/) [![NuGet Status](http://img.shields.io/nuget/v/WeakEventHandler.Fody.svg?style=flat)](https://www.nuget.org/packages/WeakEventHandler.Fody/) [![Build status](https://ci.appveyor.com/api/projects/status/s0hpt3rokmq1bo9y?svg=true)](https://ci.appveyor.com/project/tom-englert/weakeventhandler-fody)
 
 ![Icon](Icon.png)
 
