@@ -44,6 +44,12 @@
             _eventTracer("EventB " + e.Cancel);
         }
 
+        [WeakEventHandler.MakeWeak]
+        private void Source_UnusedEventHandler(object sender, MyCancelEventArgs e)
+        {
+            _eventTracer("EventB " + e.Cancel);
+        }
+
         private static EventSource GetSource([NotNull] EventTarget target)
         {
             return target._source;

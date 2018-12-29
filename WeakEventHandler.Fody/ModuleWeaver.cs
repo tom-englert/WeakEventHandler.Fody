@@ -18,7 +18,7 @@
         {
             // System.Diagnostics.Debugger.Launch();
 
-            WeakEventHandlerWeaver.Weave(ModuleDefinition, this);
+            WeakEventHandlerWeaver.Weave(ModuleDefinition, this, this);
         }
     }
 }

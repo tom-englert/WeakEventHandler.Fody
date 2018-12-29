@@ -47,21 +47,27 @@
         private readonly ModuleDefinition _moduleDefinition;
         [NotNull]
         private readonly ITypeSystem _typeSystem;
+        [NotNull]
+        private readonly ILogger _logger;
 
-        public static void Weave([NotNull] ModuleDefinition moduleDefinition, [NotNull] ITypeSystem typeSystem)
+        public static void Weave([NotNull] ModuleDefinition moduleDefinition, [NotNull] ITypeSystem typeSystem, [NotNull] ILogger logger)
         {
             if (!moduleDefinition.TryGetTypeReference(MakeWeakAttributeName, out var makeWeakAttributeReference))
+            {
+                logger.LogWarning("No reference to WeakEventHandler.dll found. Weaving skipped.");
                 return;
+            }
 
-            new WeakEventHandlerWeaver(moduleDefinition, typeSystem, makeWeakAttributeReference).Weave();
+            new WeakEventHandlerWeaver(moduleDefinition, typeSystem, logger, makeWeakAttributeReference).Weave();
         }
 
-        private WeakEventHandlerWeaver([NotNull] ModuleDefinition moduleDefinition, [NotNull] ITypeSystem typeSystem, [NotNull] TypeReference makeWeakAttributeReference)
+        private WeakEventHandlerWeaver([NotNull] ModuleDefinition moduleDefinition, [NotNull] ITypeSystem typeSystem, [NotNull] ILogger logger, [NotNull] TypeReference makeWeakAttributeReference)
         {
             // Debugger.Launch();
 
             _moduleDefinition = moduleDefinition;
             _typeSystem = typeSystem;
+            _logger = logger;
 
             var makeWeakAttribute = makeWeakAttributeReference.Resolve();
 
@@ -72,7 +78,7 @@
             _weakAdapterType = codeImporter.Import(listenerSource);
             _weakAdapterConstructor = _weakAdapterType.GetConstructors().Single(ctor => ctor.Parameters.Count == 4);
 
-            _generatedCodeAttribute = _weakAdapterType.CustomAttributes.First(attr => attr.AttributeType.Name == nameof(GeneratedCodeAttribute));
+            _generatedCodeAttribute = _weakAdapterType.CustomAttributes.Single(attr => attr.AttributeType.Name == nameof(GeneratedCodeAttribute));
 
             var weakAdapterMethods = _weakAdapterType.GetMethods();
 
@@ -102,7 +108,7 @@
             Weave(methods);
         }
 
-        private void Weave([NotNull, ItemNotNull] IEnumerable<MethodDefinition> methods)
+        private void Weave([NotNull, ItemNotNull] ICollection<MethodDefinition> methods)
         {
             var eventInfos = new Dictionary<EventKey, EventInfo>();
 
@@ -111,9 +117,23 @@
                 Analyze(method, eventInfos);
             }
 
+            Verify(methods, eventInfos);
+
             foreach (var eventInfo in eventInfos.Values)
             {
                 Weave(eventInfo);
+            }
+        }
+
+        private void Verify([NotNull] IEnumerable<MethodDefinition> methods, [NotNull] Dictionary<EventKey, EventInfo> eventInfos)
+        {
+            var unmappedMethods = methods
+                .Where(method => eventInfos.Values.All(eventInfo => eventInfo.EventSink != method))
+                .ToArray();
+
+            foreach (var method in unmappedMethods)
+            {
+                _logger.LogWarning($"Method {method} has a MakeWeak attribute, but is not attached to any event. This method will be ignored!");
             }
         }
 
@@ -153,6 +173,8 @@
 
         private void Weave([NotNull] EventInfo eventInfo)
         {
+            _logger.LogInfo($"Weaving the weak adapter into {eventInfo.Event} and {eventInfo.EventSink}");
+
             var eventSinkMethod = eventInfo.EventSink;
             var targetType = eventSinkMethod.DeclaringType;
 
@@ -279,16 +301,13 @@
             foreach (var method in methods)
             {
                 if (method.IsStatic)
-                    throw new WeavingException("static");
+                    throw new WeavingException($"MakeWeak attribute found on static method {method}. Static event handlers are not supported");
 
-                if (method.Parameters.Count != 2)
-                    throw new WeavingException("param != 2");
-
-                if (method.Parameters[0].ParameterType.FullName != "System.Object")
-                    throw new WeavingException("param1 != object");
-
-                if (!IsEventArgs(method.Parameters[1].ParameterType))
-                    throw new WeavingException("param1 != EventArgs");
+                if (method.Parameters.Count != 2
+                    || method.Parameters[0].ParameterType.FullName != "System.Object"
+                    || !IsEventArgs(method.Parameters[1].ParameterType)
+                    || method.ReturnType.Name != typeof(void).Name)
+                    throw new WeavingException($"MakeWeak attribute found on method {method}. The method does not have the void (object, EventArgs) signature.");
             }
         }
 
