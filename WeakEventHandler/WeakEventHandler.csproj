@@ -5,9 +5,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="..\LICENSE" Link="LICENSE" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="FodyPackaging" Version="4.2.1" PrivateAssets="All" />
     <PackageReference Include="Fody" Version="4.2.1" PrivateAssets="all" />
-
     <PackageReference Include="SonarAnalyzer.CSharp" Version="7.14.0.8411" PrivateAssets="All" />
     <PackageReference Include="JetBrains.Annotations" Version="2019.1.1" PrivateAssets="All" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0-beta-63127-02" PrivateAssets="All" />

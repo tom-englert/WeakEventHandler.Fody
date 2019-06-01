@@ -1,9 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Common
+﻿namespace Common
 {
+    using System;
+
     public class MyCancelEventArgs : EventArgs
     {
         public MyCancelEventArgs(bool cancel)
