@@ -18,7 +18,7 @@
 
     namespace Original
     {
-        public class EventTarget : IEventTarget
+        public class EventTarget<T> : IEventTarget
         {
             private readonly EventSource _source;
             private readonly Action<string> _eventTracer;
@@ -75,7 +75,7 @@
 
         using WeakEventHandler;
 
-        public class EventTarget : IEventTarget
+        public class EventTarget<T> : IEventTarget
         {
             [NotNull]
             private readonly EventSource _source;
@@ -108,20 +108,20 @@
             }
 
             [NotNull]
-            private readonly WeakEventAdapter<EventSource, EventTarget, EventArgs> _sourceEventAAdapter;
+            private readonly WeakEventAdapter<EventSource, EventTarget<T>, EventArgs> _sourceEventAAdapter;
             [NotNull]
-            private readonly WeakEventAdapter<EventSource, EventTarget, MyCancelEventArgs> _sourceEventBAdapter;
+            private readonly WeakEventAdapter<EventSource, EventTarget<T>, MyCancelEventArgs> _sourceEventBAdapter;
             [NotNull]
-            private readonly WeakEventAdapter<EventSource, EventTarget, EventArgs> _sourceEventCAdapter;
+            private readonly WeakEventAdapter<EventSource, EventTarget<T>, EventArgs> _sourceEventCAdapter;
 
             public EventTarget([NotNull] EventSource source, [NotNull] Action<string> eventTracer)
             {
                 _source = source;
                 _eventTracer = eventTracer;
 
-                _sourceEventAAdapter = new WeakEventAdapter<EventSource, EventTarget, EventArgs>(this, GetStaticDelegate<EventArgs>(Source_EventA), Source_EventA_Add, Source_EventA_Remove);
-                _sourceEventBAdapter = new WeakEventAdapter<EventSource, EventTarget, MyCancelEventArgs>(this, GetStaticDelegate<MyCancelEventArgs>(Source_EventB), Source_EventB_Add, Source_EventB_Remove);
-                _sourceEventCAdapter = new WeakEventAdapter<EventSource, EventTarget, EventArgs>(this, GetStaticDelegate<EventArgs>(Source_EventA), Source_EventC_Add, Source_EventC_Remove);
+                _sourceEventAAdapter = new WeakEventAdapter<EventSource, EventTarget<T>, EventArgs>(this, GetStaticDelegate<EventArgs>(Source_EventA), Source_EventA_Add, Source_EventA_Remove);
+                _sourceEventBAdapter = new WeakEventAdapter<EventSource, EventTarget<T>, MyCancelEventArgs>(this, GetStaticDelegate<MyCancelEventArgs>(Source_EventB), Source_EventB_Add, Source_EventB_Remove);
+                _sourceEventCAdapter = new WeakEventAdapter<EventSource, EventTarget<T>, EventArgs>(this, GetStaticDelegate<EventArgs>(Source_EventA), Source_EventC_Add, Source_EventC_Remove);
             }
 
             public void Subscribe()
@@ -138,6 +138,14 @@
                 _sourceEventCAdapter.Unsubscribe(_source);
             }
 
+            public void Subscribe2(EventSource source)
+            {
+                if (source == null)
+                    return;
+                
+                _sourceEventAAdapter.Subscribe(source);
+            }
+
             private void Source_EventA(object sender, EventArgs e)
             {
                 _eventTracer("EventA");
@@ -149,10 +157,10 @@
             }
 
             [NotNull]
-            private Action<EventTarget, object, T> GetStaticDelegate<T>([NotNull] Action<object, T> instanceDelegate)
-                where T : EventArgs
+            private Action<EventTarget<T>, object, T1> GetStaticDelegate<T1>([NotNull] Action<object, T1> instanceDelegate)
+                where T1 : EventArgs
             {
-                return (Action<EventTarget, object, T>)Delegate.CreateDelegate(typeof(Action<EventTarget, object, T>), null, instanceDelegate.Method);
+                return (Action<EventTarget<T>, object, T1>)Delegate.CreateDelegate(typeof(Action<EventTarget<T>, object, T1>), null, instanceDelegate.Method);
             }
 
             ~EventTarget()
@@ -168,7 +176,7 @@
     {
         using JetBrains.Annotations;
 
-        public class EventTarget : IEventTarget
+        public class EventTarget<T> : IEventTarget
         {
             private readonly EventSource _source;
             private readonly Action<string> _eventTracer;
@@ -195,6 +203,14 @@
                 _source.EventC -= Source_EventA;
             }
 
+            public void Subscribe2(EventSource source)
+            {
+                if (source == null)
+                    return;
+
+                source.EventA += Source_EventA;
+            }
+
             [WeakEventHandler.MakeWeak]
             private void Source_EventA(object sender, EventArgs e)
             {
@@ -207,12 +223,12 @@
                 _eventTracer("EventB " + e.Cancel);
             }
 
-            private static EventSource GetSource([NotNull] EventTarget target)
+            private static EventSource GetSource([NotNull] EventTarget<T> target)
             {
                 return target._source;
             }
 
-            private static EventTarget GetTarget([NotNull] EventTarget target)
+            private static EventTarget<T> GetTarget([NotNull] EventTarget<T> target)
             {
                 return target;
             }

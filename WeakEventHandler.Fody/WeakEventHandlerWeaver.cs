@@ -143,8 +143,9 @@
             {
                 var instructions = m.Body.Instructions;
 
-                foreach (var instruction in instructions.Where(instr => instr.Operand == method))
+                foreach (var instruction in instructions.Where(instr => (instr.Operand as MethodReference)?.Resolve() == method))
                 {
+                    var methodReference = (MethodReference)instruction.Operand;
                     var createEventHandler = instruction.Next;
                     var callAddOrRemoveEvent = createEventHandler?.Next;
 
@@ -159,7 +160,7 @@
                         if (sourceEvent == null)
                             continue;
 
-                        var eventInfo = GetOrAdd(eventInfos, new EventKey(method, sourceEvent));
+                        var eventInfo = GetOrAdd(eventInfos, new EventKey(methodReference, sourceEvent));
 
                         var eventRegistration = sourceEvent.AddMethod == addOrRemoveMethod ? EventRegistration.Add : EventRegistration.Remove;
 
@@ -174,17 +175,18 @@
             _logger.LogInfo($"Weaving the weak adapter into {eventInfo.Event} and {eventInfo.EventSink}");
 
             var eventSinkMethod = eventInfo.EventSink;
-            var targetType = eventSinkMethod.DeclaringType;
+            var targetTypeReference = eventSinkMethod.DeclaringType;
+            var targetType = targetTypeReference.Resolve();
 
             var sourceEvent = eventInfo.Event;
             var sourceType = _moduleDefinition.ImportReference(sourceEvent.DeclaringType);
 
             var eventArgsType = _moduleDefinition.ImportReference(eventSinkMethod.Parameters[1].ParameterType);
 
-            var weakAdapterType = _weakAdapterType.MakeGenericInstanceType(sourceType, targetType, eventArgsType);
+            var weakAdapterType = _weakAdapterType.MakeGenericInstanceType(sourceType, targetTypeReference, eventArgsType);
             var weakAdapterConstructor = _weakAdapterConstructor.OnGenericType(weakAdapterType);
 
-            var eventSinkActionType = _action3Type.MakeGenericInstanceType(targetType, _typeSystem.TypeSystem.ObjectReference, eventArgsType);
+            var eventSinkActionType = _action3Type.MakeGenericInstanceType(targetTypeReference, _typeSystem.TypeSystem.ObjectReference, eventArgsType);
             var eventSinkActionConstructor = _action3Constructor.OnGenericType(eventSinkActionType);
 
             var eventHandlerType = _eventHandlerType.MakeGenericInstanceType(eventArgsType);
@@ -204,14 +206,14 @@
             targetType.InsertIntoConstructors(() => new[]
             {
                 // this
-                Instruction.Create(OpCodes.Ldarg_0), 
+                Instruction.Create(OpCodes.Ldarg_0),
                 // targetObject
-                Instruction.Create(OpCodes.Ldarg_0), 
+                Instruction.Create(OpCodes.Ldarg_0),
                 // targetDelegate
                 Instruction.Create(OpCodes.Ldnull),
                 Instruction.Create(OpCodes.Ldftn, eventSinkMethod),
                 Instruction.Create(OpCodes.Newobj, eventSinkActionConstructor),
-                // add 
+                // add
                 Instruction.Create(OpCodes.Ldnull),
                 Instruction.Create(OpCodes.Ldftn, addMethodAdapter),
                 Instruction.Create(OpCodes.Newobj, eventHandlerAdapterActionConstructor),
@@ -250,17 +252,17 @@
                     instructions[index].ComputeStackDelta(ref stackSize);
                 }
 
-                if (instructions[index].OpCode == OpCodes.Ldarg_0) // keep this instruction at top, probably used as sequence point in debug info.
-                {
-                    index++;
-                    instructions.Insert(index++, Instruction.Create(OpCodes.Ldfld, weakAdapterField));
-                    instructions.Insert(index, Instruction.Create(OpCodes.Ldarg_0));
-                }
-                else
-                {
-                    instructions.Insert(index++, Instruction.Create(OpCodes.Ldarg_0));
-                    instructions.Insert(index, Instruction.Create(OpCodes.Ldfld, weakAdapterField));
-                }
+                // keep this instruction at top, maybe used as jump target or sequence point in debug info.
+                var topInstruction = Instruction.Create(OpCodes.Nop);
+
+                topInstruction.OpCode = instructions[index].OpCode;
+                topInstruction.Operand = instructions[index].Operand;
+
+                instructions[index].OpCode = OpCodes.Ldarg_0;
+                instructions[index].Operand = null;
+
+                instructions.Insert(++index, Instruction.Create(OpCodes.Ldfld, weakAdapterField));
+                instructions.Insert(++index, topInstruction);
 
                 index = indexOfEventHandler + 1;
 
@@ -344,14 +346,14 @@
 
         private class EventKey : IEquatable<EventKey>
         {
-            public EventKey([NotNull] MethodDefinition eventSink, [NotNull] EventDefinition eventDefinition)
+            public EventKey([NotNull] MethodReference eventSink, [NotNull] EventDefinition eventDefinition)
             {
                 EventSink = eventSink;
                 Event = eventDefinition;
             }
 
             [NotNull]
-            public MethodDefinition EventSink { get; }
+            public MethodReference EventSink { get; }
 
             [NotNull]
             public EventDefinition Event { get; }
@@ -369,7 +371,7 @@
                     return false;
                 if (ReferenceEquals(this, other))
                     return true;
-                return Equals(EventSink, other.EventSink) && Equals(Event, other.Event);
+                return Equals(EventSink.Resolve(), other.EventSink.Resolve()) && Equals(Event, other.Event);
             }
 
             public override bool Equals(object obj)
@@ -381,7 +383,7 @@
             {
                 unchecked
                 {
-                    return (EventSink.GetHashCode() * 397) ^ Event.GetHashCode();
+                    return (EventSink.Resolve()?.GetHashCode() ?? 0 * 397) ^ Event.GetHashCode();
                 }
             }
 

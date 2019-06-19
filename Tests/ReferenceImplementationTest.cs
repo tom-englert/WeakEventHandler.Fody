@@ -200,11 +200,11 @@
             switch (targetKind)
             {
                 case TargetKind.Original:
-                    return new Template.Original.EventTarget(source, eventTracer);
+                    return new Template.Original.EventTarget<int>(source, eventTracer);
                 case TargetKind.Weak:
-                    return new Template.Weak.EventTarget(source, eventTracer);
+                    return new Template.Weak.EventTarget<int>(source, eventTracer);
                 case TargetKind.Fody:
-                    return new Template.Fody.EventTarget(source, eventTracer);
+                    return new Template.Fody.EventTarget<int>(source, eventTracer);
             }
 
             throw new InvalidOperationException();
