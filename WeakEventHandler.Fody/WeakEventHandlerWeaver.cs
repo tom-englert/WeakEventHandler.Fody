@@ -123,11 +123,11 @@
             }
         }
 
-        private void Verify([NotNull] IEnumerable<MethodDefinition> methods, [NotNull] Dictionary<EventKey, EventInfo> eventInfos)
+        private void Verify([NotNull, ItemNotNull] IEnumerable<MethodDefinition> eventHandlerMethods, [NotNull] Dictionary<EventKey, EventInfo> eventInfos)
         {
-            var unmappedMethods = methods
-                .Where(method => eventInfos.Values.All(eventInfo => eventInfo.EventSink != method))
-                .ToArray();
+            var unmappedMethods = eventHandlerMethods
+                .Where(method => eventInfos.Values.All(eventInfo => eventInfo?.EventSinkDefinition != method))
+                .ToList();
 
             foreach (var method in unmappedMethods)
             {
@@ -135,15 +135,15 @@
             }
         }
 
-        private void Analyze([NotNull] MethodDefinition method, [NotNull] Dictionary<EventKey, EventInfo> eventInfos)
+        private void Analyze([NotNull] MethodDefinition eventHandlerMethod, [NotNull] Dictionary<EventKey, EventInfo> eventInfos)
         {
-            var type = method.DeclaringType;
+            var type = eventHandlerMethod.DeclaringType;
 
             foreach (var m in type.Methods)
             {
                 var instructions = m.Body.Instructions;
 
-                foreach (var instruction in instructions.Where(instr => (instr.Operand as MethodReference)?.Resolve() == method))
+                foreach (var instruction in instructions.Where(instr => (instr.Operand as MethodReference)?.Resolve() == eventHandlerMethod))
                 {
                     var methodReference = (MethodReference)instruction.Operand;
                     var createEventHandler = instruction.Next;
@@ -164,7 +164,7 @@
 
                         var eventRegistration = sourceEvent.AddMethod == addOrRemoveMethod ? EventRegistration.Add : EventRegistration.Remove;
 
-                        eventInfo.Instructions.Add(new InstructionInfo(eventRegistration, instruction, instructions, method));
+                        eventInfo.Instructions.Add(new InstructionInfo(eventRegistration, instruction, instructions, eventHandlerMethod));
                     }
                 }
             }
@@ -252,17 +252,11 @@
                     instructions[index].ComputeStackDelta(ref stackSize);
                 }
 
-                // keep this instruction at top, maybe used as jump target or sequence point in debug info.
-                var topInstruction = Instruction.Create(OpCodes.Nop);
+                // keep the top instruction, maybe used as jump target or sequence point in debug info.
+                var topInstruction = instructions[index++].ReplaceWith(OpCodes.Ldarg_0);
 
-                topInstruction.OpCode = instructions[index].OpCode;
-                topInstruction.Operand = instructions[index].Operand;
-
-                instructions[index].OpCode = OpCodes.Ldarg_0;
-                instructions[index].Operand = null;
-
-                instructions.Insert(++index, Instruction.Create(OpCodes.Ldfld, weakAdapterField));
-                instructions.Insert(++index, topInstruction);
+                instructions.Insert(index++, Instruction.Create(OpCodes.Ldfld, weakAdapterField));
+                instructions.Insert(index, topInstruction);
 
                 index = indexOfEventHandler + 1;
 
@@ -296,9 +290,9 @@
             return method;
         }
 
-        private static void Verify([NotNull, ItemNotNull] IEnumerable<MethodDefinition> methods)
+        private static void Verify([NotNull, ItemNotNull] IEnumerable<MethodDefinition> eventHandlerMethods)
         {
-            foreach (var method in methods)
+            foreach (var method in eventHandlerMethods)
             {
                 if (method.IsStatic)
                     throw new WeavingException($"MakeWeak attribute found on static method {method}. Static event handlers are not supported");
@@ -350,7 +344,11 @@
             {
                 EventSink = eventSink;
                 Event = eventDefinition;
+                EventSinkDefinition = eventSink.Resolve();
             }
+
+            [NotNull]
+            public MethodDefinition EventSinkDefinition { get; }
 
             [NotNull]
             public MethodReference EventSink { get; }
@@ -371,7 +369,7 @@
                     return false;
                 if (ReferenceEquals(this, other))
                     return true;
-                return Equals(EventSink.Resolve(), other.EventSink.Resolve()) && Equals(Event, other.Event);
+                return Equals(EventSinkDefinition, other.EventSinkDefinition) && Equals(Event, other.Event);
             }
 
             public override bool Equals(object obj)
@@ -383,7 +381,7 @@
             {
                 unchecked
                 {
-                    return (EventSink.Resolve()?.GetHashCode() ?? 0 * 397) ^ Event.GetHashCode();
+                    return (EventSinkDefinition?.GetHashCode() ?? 0 * 397) ^ Event.GetHashCode();
                 }
             }
 
