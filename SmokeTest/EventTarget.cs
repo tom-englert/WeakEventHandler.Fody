@@ -1,4 +1,6 @@
-﻿namespace SmokeTest
+﻿// ReSharper disable UnusedMember.Local
+// ReSharper disable UnusedParameter.Local
+namespace SmokeTest
 {
     using System;
 

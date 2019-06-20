@@ -28,8 +28,6 @@
         [NotNull]
         private readonly MethodReference _action3Constructor;
         [NotNull]
-        private readonly TypeReference _eventHandlerType;
-        [NotNull]
         private readonly CustomAttribute _generatedCodeAttribute;
 
         [NotNull]
@@ -69,7 +67,7 @@
 
             var makeWeakAttribute = makeWeakAttributeReference.Resolve();
 
-            var listenerSource = makeWeakAttribute.Module.Types.Single(t => t.Name == "WeakEventAdapter`3");
+            var listenerSource = makeWeakAttribute.Module.Types.Single(t => t.Name == "WeakEventAdapter`4");
 
             var codeImporter = new CodeImporter(moduleDefinition) { NamespaceDecorator = value => "<>" + value };
 
@@ -78,7 +76,7 @@
 
             _generatedCodeAttribute = _weakAdapterType.CustomAttributes.Single(attr => attr.AttributeType.Name == nameof(GeneratedCodeAttribute));
 
-            var weakAdapterMethods = _weakAdapterType.GetMethods();
+            var weakAdapterMethods = _weakAdapterType.GetMethods().ToList();
 
             _weakAdapterSubscribeMethod = weakAdapterMethods.Single(method => method.Name == "Subscribe");
             _weakAdapterUnsubscribeMethod = weakAdapterMethods.Single(method => method.Name == "Unsubscribe");
@@ -88,8 +86,6 @@
             _action2Constructor = typeSystem.ImportMethod<Action<object, EventArgs>, object, IntPtr>(".ctor");
             _action3Type = typeSystem.ImportType<Action<Type, object, EventArgs>>();
             _action3Constructor = typeSystem.ImportMethod<Action<Type, object, EventArgs>, object, IntPtr>(".ctor");
-
-            _eventHandlerType = typeSystem.ImportType<EventHandler<EventArgs>>();
         }
 
         private void Weave()
@@ -147,25 +143,29 @@
                 {
                     var methodReference = (MethodReference)instruction.Operand;
                     var createEventHandler = instruction.Next;
+
+                    if (createEventHandler?.OpCode != OpCodes.Newobj)
+                        continue;
+
                     var callAddOrRemoveEvent = createEventHandler?.Next;
 
-                    if (callAddOrRemoveEvent?.OpCode == OpCodes.Callvirt)
-                    {
-                        var addOrRemoveMethod = (callAddOrRemoveEvent?.Operand as MethodReference)?.Resolve();
+                    if (callAddOrRemoveEvent?.OpCode != OpCodes.Callvirt)
+                        continue;
 
-                        var sourceType = addOrRemoveMethod?.DeclaringType;
+                    var addOrRemoveMethod = (callAddOrRemoveEvent?.Operand as MethodReference)?.Resolve();
 
-                        var sourceEvent = sourceType?.Events?.SingleOrDefault(e => e.AddMethod == addOrRemoveMethod || e.RemoveMethod == addOrRemoveMethod);
+                    var sourceType = addOrRemoveMethod?.DeclaringType;
 
-                        if (sourceEvent == null)
-                            continue;
+                    var sourceEvent = sourceType?.Events?.SingleOrDefault(e => e.AddMethod == addOrRemoveMethod || e.RemoveMethod == addOrRemoveMethod);
 
-                        var eventInfo = GetOrAdd(eventInfos, new EventKey(methodReference, sourceEvent));
+                    if (sourceEvent == null)
+                        continue;
 
-                        var eventRegistration = sourceEvent.AddMethod == addOrRemoveMethod ? EventRegistration.Add : EventRegistration.Remove;
+                    var eventInfo = GetOrAdd(eventInfos, new EventKey(methodReference, sourceEvent, (MethodReference)createEventHandler.Operand));
 
-                        eventInfo.Instructions.Add(new InstructionInfo(eventRegistration, instruction, instructions, eventHandlerMethod));
-                    }
+                    var eventRegistration = sourceEvent.AddMethod == addOrRemoveMethod ? EventRegistration.Add : EventRegistration.Remove;
+
+                    eventInfo.Instructions.Add(new InstructionInfo(eventRegistration, instruction, instructions));
                 }
             }
         }
@@ -183,13 +183,13 @@
 
             var eventArgsType = _moduleDefinition.ImportReference(eventSinkMethod.Parameters[1].ParameterType);
 
-            var weakAdapterType = _weakAdapterType.MakeGenericInstanceType(sourceType, targetTypeReference, eventArgsType);
+            var eventHandlerType = eventInfo.EventHandlerConstructor.DeclaringType;
+            var weakAdapterType = _weakAdapterType.MakeGenericInstanceType(sourceType, targetTypeReference, eventArgsType, eventHandlerType);
             var weakAdapterConstructor = _weakAdapterConstructor.OnGenericType(weakAdapterType);
 
             var eventSinkActionType = _action3Type.MakeGenericInstanceType(targetTypeReference, _typeSystem.TypeSystem.ObjectReference, eventArgsType);
             var eventSinkActionConstructor = _action3Constructor.OnGenericType(eventSinkActionType);
 
-            var eventHandlerType = _eventHandlerType.MakeGenericInstanceType(eventArgsType);
             var eventHandlerAdapterActionType = _action2Type.MakeGenericInstanceType(sourceType, eventHandlerType);
             var eventHandlerAdapterActionConstructor = _action2Constructor.OnGenericType(eventHandlerAdapterActionType);
 
@@ -215,11 +215,11 @@
                 Instruction.Create(OpCodes.Newobj, eventSinkActionConstructor),
                 // add
                 Instruction.Create(OpCodes.Ldnull),
-                Instruction.Create(OpCodes.Ldftn, addMethodAdapter),
+                Instruction.Create(OpCodes.Ldftn, addMethodAdapter.OnGenericTypeOrSelf(targetTypeReference)),
                 Instruction.Create(OpCodes.Newobj, eventHandlerAdapterActionConstructor),
                 // remove
                 Instruction.Create(OpCodes.Ldnull),
-                Instruction.Create(OpCodes.Ldftn, removeMethodAdapter),
+                Instruction.Create(OpCodes.Ldftn, removeMethodAdapter.OnGenericTypeOrSelf(targetTypeReference)),
                 Instruction.Create(OpCodes.Newobj, eventHandlerAdapterActionConstructor),
 
                 Instruction.Create(OpCodes.Newobj, weakAdapterConstructor),
@@ -305,7 +305,7 @@
             }
         }
 
-        private static bool IsEventArgs(TypeReference type)
+        private static bool IsEventArgs([CanBeNull] TypeReference type)
         {
             if (type == null)
                 return false;
@@ -340,21 +340,22 @@
 
         private class EventKey : IEquatable<EventKey>
         {
-            public EventKey([NotNull] MethodReference eventSink, [NotNull] EventDefinition eventDefinition)
+            public EventKey([NotNull] MethodReference eventSink, [NotNull] EventDefinition eventDefinition, [NotNull] MethodReference eventHandlerConstructor)
             {
                 EventSink = eventSink;
                 Event = eventDefinition;
+                EventHandlerConstructor = eventHandlerConstructor;
                 EventSinkDefinition = eventSink.Resolve();
             }
 
             [NotNull]
             public MethodDefinition EventSinkDefinition { get; }
-
             [NotNull]
             public MethodReference EventSink { get; }
-
             [NotNull]
             public EventDefinition Event { get; }
+            [NotNull]
+            public MethodReference EventHandlerConstructor { get; }
 
             public override string ToString()
             {
@@ -363,7 +364,7 @@
 
             #region Equatable
 
-            public bool Equals(EventKey other)
+            public bool Equals([CanBeNull] EventKey other)
             {
                 if (other is null)
                     return false;
@@ -372,7 +373,7 @@
                 return Equals(EventSinkDefinition, other.EventSinkDefinition) && Equals(Event, other.Event);
             }
 
-            public override bool Equals(object obj)
+            public override bool Equals([CanBeNull] object obj)
             {
                 return Equals(obj as EventKey);
             }
@@ -381,7 +382,7 @@
             {
                 unchecked
                 {
-                    return (EventSinkDefinition?.GetHashCode() ?? 0 * 397) ^ Event.GetHashCode();
+                    return (EventSinkDefinition.GetHashCode() * 397) ^ Event.GetHashCode();
                 }
             }
 
@@ -391,7 +392,7 @@
         private class EventInfo : EventKey
         {
             public EventInfo([NotNull] EventKey key)
-                : base(key.EventSink, key.Event)
+                : base(key.EventSink, key.Event, key.EventHandlerConstructor)
             {
             }
 
@@ -407,12 +408,11 @@
 
         private class InstructionInfo
         {
-            public InstructionInfo(EventRegistration eventRegistration, [NotNull] Instruction instruction, [NotNull] IList<Instruction> collection, [NotNull] MethodDefinition method)
+            public InstructionInfo(EventRegistration eventRegistration, [NotNull] Instruction instruction, [NotNull] IList<Instruction> collection)
             {
                 EventRegistration = eventRegistration;
                 Instruction = instruction;
                 Collection = collection;
-                Method = method;
             }
 
             public EventRegistration EventRegistration { get; }
@@ -422,9 +422,6 @@
 
             [NotNull]
             public IList<Instruction> Collection { get; }
-
-            [NotNull]
-            public MethodDefinition Method { get; }
         }
     }
 }

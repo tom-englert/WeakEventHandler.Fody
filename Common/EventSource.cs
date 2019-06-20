@@ -1,6 +1,7 @@
 ﻿namespace Common
 {
     using System;
+    using System.ComponentModel;
 
     public class MyCancelEventArgs : EventArgs
     {
@@ -12,30 +13,36 @@
         public bool Cancel { get; }
     }
 
-    public class EventSource
+    public class EventSource : INotifyPropertyChanged
     {
         public event EventHandler<EventArgs> EventA;
         public event EventHandler<MyCancelEventArgs> EventB;
         public event EventHandler<EventArgs> EventC;
+        public event PropertyChangedEventHandler PropertyChanged;
 
-        public void OnEventA1()
+        public void RaiseEventA1()
         {
             EventA?.Invoke(this, EventArgs.Empty);
         }
 
-        public void OnEventA2(EventArgs e)
+        public void RaiseEventA2(EventArgs e)
         {
             EventA?.Invoke(this, e);
         }
 
-        public void OnEventB(bool value)
+        public void RaiseEventB(bool value)
         {
             EventB?.Invoke(this, new MyCancelEventArgs(value));
         }
 
-        public void OnEventC()
+        public void RaiseEventC()
         {
             EventC?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void RaisePropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
     }
 }

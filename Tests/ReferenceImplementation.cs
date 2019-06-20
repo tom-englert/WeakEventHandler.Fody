@@ -1,7 +1,16 @@
-﻿namespace Template
+﻿// ReSharper disable CheckNamespace
+// ReSharper disable UnusedTypeParameter
+// ReSharper disable EmptyDestructor
+// ReSharper disable CommentTypo
+// ReSharper disable UnusedMember.Global
+namespace Template
 {
     using System;
     using Common;
+    using System.ComponentModel;
+
+    using JetBrains.Annotations;
+
 
     public interface IEventTarget
     {
@@ -34,6 +43,7 @@
                 _source.EventA += Source_EventA;
                 _source.EventB += Source_EventB;
                 _source.EventC += Source_EventA;
+                _source.PropertyChanged += Source_PropertyChanged;
             }
 
             public void Unsubscribe()
@@ -41,6 +51,7 @@
                 _source.EventA -= Source_EventA;
                 _source.EventB -= Source_EventB;
                 _source.EventC -= Source_EventA;
+                _source.PropertyChanged -= Source_PropertyChanged;
             }
 
             private void Source_EventA(object sender, EventArgs e)
@@ -51,6 +62,11 @@
             private void Source_EventB(object sender, MyCancelEventArgs e)
             {
                 _eventTracer("EventB " + e.Cancel);
+            }
+
+            private void Source_PropertyChanged(object sender, PropertyChangedEventArgs e)
+            {
+                _eventTracer("PropertyChanged: " + e.PropertyName);
             }
 
             ~EventTarget()
@@ -71,8 +87,6 @@
 
     namespace Weak
     {
-        using JetBrains.Annotations;
-
         using WeakEventHandler;
 
         public class EventTarget<T> : IEventTarget
@@ -106,22 +120,37 @@
             {
                 source.EventC -= handler;
             }
+            private static void Source_PropertyChanged_Add([NotNull] EventSource source, PropertyChangedEventHandler handler)
+            {
+                source.PropertyChanged += handler;
+            }
+            private static void Source_PropertyChanged_Remove([NotNull] EventSource source, PropertyChangedEventHandler handler)
+            {
+                source.PropertyChanged -= handler;
+            }
 
             [NotNull]
-            private readonly WeakEventAdapter<EventSource, EventTarget<T>, EventArgs> _sourceEventAAdapter;
+            private readonly WeakEventAdapter<EventSource, EventTarget<T>, EventArgs, EventHandler<EventArgs>> _sourceEventAAdapter;
             [NotNull]
-            private readonly WeakEventAdapter<EventSource, EventTarget<T>, MyCancelEventArgs> _sourceEventBAdapter;
+            private readonly WeakEventAdapter<EventSource, EventTarget<T>, MyCancelEventArgs, EventHandler<MyCancelEventArgs>> _sourceEventBAdapter;
             [NotNull]
-            private readonly WeakEventAdapter<EventSource, EventTarget<T>, EventArgs> _sourceEventCAdapter;
+            private readonly WeakEventAdapter<EventSource, EventTarget<T>, EventArgs, EventHandler<EventArgs>> _sourceEventCAdapter;
+            [NotNull]
+            private readonly WeakEventAdapter<EventSource, EventTarget<T>, PropertyChangedEventArgs, PropertyChangedEventHandler> _sourcePropertyChangedAdapter;
 
             public EventTarget([NotNull] EventSource source, [NotNull] Action<string> eventTracer)
             {
                 _source = source;
                 _eventTracer = eventTracer;
 
-                _sourceEventAAdapter = new WeakEventAdapter<EventSource, EventTarget<T>, EventArgs>(this, GetStaticDelegate<EventArgs>(Source_EventA), Source_EventA_Add, Source_EventA_Remove);
-                _sourceEventBAdapter = new WeakEventAdapter<EventSource, EventTarget<T>, MyCancelEventArgs>(this, GetStaticDelegate<MyCancelEventArgs>(Source_EventB), Source_EventB_Add, Source_EventB_Remove);
-                _sourceEventCAdapter = new WeakEventAdapter<EventSource, EventTarget<T>, EventArgs>(this, GetStaticDelegate<EventArgs>(Source_EventA), Source_EventC_Add, Source_EventC_Remove);
+                var eventADelegate = GetStaticDelegate<EventArgs>(Source_EventA);
+                var eventBDelegate = GetStaticDelegate<MyCancelEventArgs>(Source_EventB);
+                var propChangeDelegate = GetStaticDelegate<PropertyChangedEventArgs>(Source_PropertyChanged);
+
+                _sourceEventAAdapter = new WeakEventAdapter<EventSource, EventTarget<T>, EventArgs, EventHandler<EventArgs>>(this, eventADelegate, Source_EventA_Add, Source_EventA_Remove);
+                _sourceEventBAdapter = new WeakEventAdapter<EventSource, EventTarget<T>, MyCancelEventArgs, EventHandler<MyCancelEventArgs>>(this, eventBDelegate, Source_EventB_Add, Source_EventB_Remove);
+                _sourceEventCAdapter = new WeakEventAdapter<EventSource, EventTarget<T>, EventArgs, EventHandler<EventArgs>>(this, eventADelegate, Source_EventC_Add, Source_EventC_Remove);
+                _sourcePropertyChangedAdapter = new WeakEventAdapter<EventSource, EventTarget<T>, PropertyChangedEventArgs, PropertyChangedEventHandler>(this, propChangeDelegate, Source_PropertyChanged_Add, Source_PropertyChanged_Remove);
             }
 
             public void Subscribe()
@@ -129,6 +158,7 @@
                 _sourceEventAAdapter.Subscribe(_source);
                 _sourceEventBAdapter.Subscribe(_source);
                 _sourceEventCAdapter.Subscribe(_source);
+                _sourcePropertyChangedAdapter.Subscribe(_source);
             }
 
             public void Unsubscribe()
@@ -136,9 +166,10 @@
                 _sourceEventAAdapter.Unsubscribe(_source);
                 _sourceEventBAdapter.Unsubscribe(_source);
                 _sourceEventCAdapter.Unsubscribe(_source);
+                _sourcePropertyChangedAdapter.Unsubscribe(_source);
             }
 
-            public void Subscribe2(EventSource source)
+            public void Subscribe2([CanBeNull] EventSource source)
             {
                 if (source == null)
                     return;
@@ -154,6 +185,11 @@
             private void Source_EventB(object sender, [NotNull] MyCancelEventArgs e)
             {
                 _eventTracer("EventB " + e.Cancel);
+            }
+
+            private void Source_PropertyChanged(object sender, PropertyChangedEventArgs e)
+            {
+                _eventTracer("PropertyChanged: " + e.PropertyName);
             }
 
             [NotNull]
@@ -174,8 +210,6 @@
 
     namespace Fody
     {
-        using JetBrains.Annotations;
-
         public class EventTarget<T> : IEventTarget
         {
             private readonly EventSource _source;
@@ -193,6 +227,7 @@
 
                 _source.EventB += Source_EventB;
                 _source.EventC += Source_EventA;
+                _source.PropertyChanged += Source_PropertyChanged;
             }
 
             public void Unsubscribe()
@@ -201,9 +236,10 @@
 
                 _source.EventB -= Source_EventB;
                 _source.EventC -= Source_EventA;
+                _source.PropertyChanged -= Source_PropertyChanged;
             }
 
-            public void Subscribe2(EventSource source)
+            public void Subscribe2([CanBeNull] EventSource source)
             {
                 if (source == null)
                     return;
@@ -221,6 +257,12 @@
             private void Source_EventB(object sender, MyCancelEventArgs e)
             {
                 _eventTracer("EventB " + e.Cancel);
+            }
+
+            [WeakEventHandler.MakeWeak]
+            private void Source_PropertyChanged(object sender, PropertyChangedEventArgs e)
+            {
+                _eventTracer("PropertyChanged: " + e.PropertyName);
             }
 
             private static EventSource GetSource([NotNull] EventTarget<T> target)

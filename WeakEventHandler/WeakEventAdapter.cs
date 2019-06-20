@@ -1,15 +1,22 @@
-﻿namespace WeakEventHandler
+﻿// ReSharper disable UnusedMember.Global
+// ReSharper disable MemberCanBePrivate.Global
+namespace WeakEventHandler
 {
     using System;
     using System.CodeDom.Compiler;
     using System.Collections.Generic;
+#if NETSTANDARD1_0
+    using System.Reflection;
+#endif
     using System.Threading;
 
     using JetBrains.Annotations;
 
     [GeneratedCode("WeakEventHandler.Fody", "1.0")]
-    internal class WeakEventAdapter<TSource, TTarget, TEventArgs>
+    [UsedImplicitly]
+    internal class WeakEventAdapter<TSource, TTarget, TEventArgs, TEventHandler>
         where TEventArgs : EventArgs
+        where TEventHandler : Delegate
         where TSource : class
         where TTarget : class
     {
@@ -23,24 +30,32 @@
         private readonly Action<TTarget, object, TEventArgs> _targetDelegate;
 
         [NotNull]
-        private readonly Action<TSource, EventHandler<TEventArgs>> _addDelegate;
+        private readonly Action<TSource, TEventHandler> _addDelegate;
 
         [NotNull]
-        private readonly Action<TSource, EventHandler<TEventArgs>> _removeDelegate;
+        private readonly Action<TSource, TEventHandler> _removeDelegate;
 
         [NotNull, ItemNotNull]
         private List<TSource> _subscriptions = new List<TSource>();
 
         [NotNull]
-        private readonly EventHandler<TEventArgs> _eventDelegate;
+        private readonly TEventHandler _eventDelegate;
 
-        public WeakEventAdapter(TTarget targetObject, [NotNull] Action<TTarget, object, TEventArgs> targetDelegate, [NotNull] Action<TSource, EventHandler<TEventArgs>> addDelegate, [NotNull] Action<TSource, EventHandler<TEventArgs>> removeDelegate)
+        public WeakEventAdapter([NotNull] TTarget targetObject, [NotNull] Action<TTarget, object, TEventArgs> targetDelegate, [NotNull] Action<TSource, TEventHandler> addDelegate, [NotNull] Action<TSource, TEventHandler> removeDelegate)
         {
             _weakTarget = new WeakReference<TTarget>(targetObject);
             _targetDelegate = targetDelegate;
             _addDelegate = addDelegate;
             _removeDelegate = removeDelegate;
-            _eventDelegate = OnEvent;
+
+#if NETSTANDARD1_0
+            var method = ((Action<object, TEventArgs>)OnEvent).GetMethodInfo();
+            var type = typeof(TEventHandler);
+            _eventDelegate = (TEventHandler)method.CreateDelegate(type, this);
+#else
+            var method = ((Action<object, TEventArgs>)OnEvent).Method;
+            _eventDelegate = (TEventHandler)Delegate.CreateDelegate(typeof(TEventHandler), this, method);
+#endif
         }
 
         private void OnEvent(object sender, TEventArgs e)
@@ -116,7 +131,7 @@
             {
             }
 
-            public bool TryGetTarget(out T target)
+            public bool TryGetTarget([CanBeNull] out T target)
             {
                 target = Target as T;
                 return target != null;

@@ -1,4 +1,6 @@
-﻿namespace Tests
+﻿// ReSharper disable UnusedMember.Local
+// ReSharper disable UnusedVariable
+namespace Tests
 {
     using System;
     using System.Diagnostics;
@@ -34,21 +36,25 @@
 
             var target = CreateTarget(targetKind, source, e => lastEvent = e);
 
-            source.OnEventA1();
+            source.RaiseEventA1();
 
             Assert.Null(lastEvent);
 
             target.Subscribe();
 
-            source.OnEventA1();
+            source.RaiseEventA1();
 
             Assert.Equal("EventA", lastEvent);
+
+            source.RaisePropertyChanged("Test");
+
+            Assert.Equal("PropertyChanged: Test", lastEvent);
 
             lastEvent = null;
 
             target.Unsubscribe();
 
-            source.OnEventA1();
+            source.RaiseEventA1();
 
             Assert.Null(lastEvent);
         }
@@ -67,15 +73,19 @@
             {
                 var target = CreateTarget(targetKind, source, e => lastEvent = e);
 
-                source.OnEventA1();
+                source.RaiseEventA1();
 
                 Assert.Null(lastEvent);
 
                 target.Subscribe();
 
-                source.OnEventA1();
+                source.RaiseEventA1();
 
                 Assert.Equal("EventA", lastEvent);
+
+                source.RaisePropertyChanged("Test");
+
+                Assert.Equal("PropertyChanged: Test", lastEvent);
 
                 lastEvent = null;
             }
@@ -84,7 +94,7 @@
 
             GCCollect();
 
-            source.OnEventA1();
+            source.RaiseEventA1();
 
             var expected = IsWeak(targetKind) ? null : "EventA";
 
@@ -105,19 +115,23 @@
             {
                 var target = CreateTarget(targetKind, source, e => lastEvent = e);
 
-                source.OnEventA1();
+                source.RaiseEventA1();
 
                 Assert.Null(lastEvent);
 
                 target.Subscribe();
 
-                source.OnEventB(true);
+                source.RaiseEventB(true);
 
                 Assert.Equal("EventB True", lastEvent);
 
-                source.OnEventB(false);
+                source.RaiseEventB(false);
 
                 Assert.Equal("EventB False", lastEvent);
+
+                source.RaisePropertyChanged("Test");
+
+                Assert.Equal("PropertyChanged: Test", lastEvent);
 
                 lastEvent = null;
             }
@@ -126,15 +140,21 @@
 
             GCCollect();
 
-            source.OnEventA1();
+            source.RaiseEventA1();
 
             var expected = IsWeak(targetKind) ? null : "EventA";
 
             Assert.Equal(expected, lastEvent);
 
-            source.OnEventB(true);
+            source.RaiseEventB(true);
 
             expected = IsWeak(targetKind) ? null : "EventB True";
+
+            Assert.Equal(expected, lastEvent);
+
+            source.RaisePropertyChanged("Test3");
+
+            expected = IsWeak(targetKind) ? null : "PropertyChanged: Test3";
 
             Assert.Equal(expected, lastEvent);
         }
@@ -179,7 +199,7 @@
 
             for (var i = 0; i < numberOfLoops; i++)
             {
-                source.OnEventA1();
+                source.RaiseEventA1();
             }
 
             target.Unsubscribe();
