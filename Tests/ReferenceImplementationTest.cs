@@ -11,6 +11,8 @@ namespace Tests
 
     using Template;
 
+    using WeakEventHandler;
+
     using Xunit;
     using Xunit.Abstractions;
 
@@ -157,6 +159,43 @@ namespace Tests
             expected = IsWeak(targetKind) ? null : "PropertyChanged: Test3";
 
             Assert.Equal(expected, lastEvent);
+        }
+
+        [Theory]
+        [InlineData(TargetKind.Fody)]
+        public void UnsubscribeWeakEvents(TargetKind targetKind)
+        {
+            var lastEvent = (string)null;
+
+            var source = new EventSource();
+
+            var target = CreateTarget(targetKind, source, e => lastEvent = e);
+
+            source.RaiseEventA1();
+
+            Assert.Null(lastEvent);
+
+            target.Subscribe();
+
+            source.RaiseEventA1();
+
+            Assert.Equal("EventA", lastEvent);
+
+            source.RaisePropertyChanged("Test");
+
+            Assert.Equal("PropertyChanged: Test", lastEvent);
+
+            lastEvent = null;
+
+            WeakEvents.Unsubscribe(target);
+
+            source.RaiseEventA1();
+
+            Assert.Null(lastEvent);
+
+            source.RaisePropertyChanged("Test2");
+
+            Assert.Null(lastEvent);
         }
 
         [Theory]

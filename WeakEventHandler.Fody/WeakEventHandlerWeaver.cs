@@ -47,6 +47,10 @@
         private readonly ITypeSystem _typeSystem;
         [NotNull]
         private readonly ILogger _logger;
+        [NotNull]
+        private readonly TypeDefinition _eventTargetInterface;
+        [NotNull]
+        private readonly CodeImporter _codeImporter;
 
         public static void Weave([NotNull] ModuleDefinition moduleDefinition, [NotNull] ITypeSystem typeSystem, [NotNull] ILogger logger)
         {
@@ -67,13 +71,14 @@
 
             var makeWeakAttribute = makeWeakAttributeReference.Resolve();
 
-            var listenerSource = makeWeakAttribute.Module.Types.Single(t => t.Name == "WeakEventAdapter`4");
+            var helperTypes = makeWeakAttribute.Module.Types;
 
-            var codeImporter = new CodeImporter(moduleDefinition) { NamespaceDecorator = value => "<>" + value };
+            _codeImporter = new CodeImporter(moduleDefinition) { NamespaceDecorator = value => "<>" + value };
 
-            _weakAdapterType = codeImporter.Import(listenerSource);
+            _weakAdapterType = _codeImporter.Import(helperTypes.Single(t => t.Name == "WeakEventHandlerFodyWeakEventAdapter`4"));
+            _eventTargetInterface = _codeImporter.Import(helperTypes.Single(t => t.Name == "IWeakEventHandlerFodyWeakEventTarget"));
+
             _weakAdapterConstructor = _weakAdapterType.GetConstructors().Single(ctor => ctor.Parameters.Count == 4);
-
             _generatedCodeAttribute = _weakAdapterType.CustomAttributes.Single(attr => attr.AttributeType.Name == nameof(GeneratedCodeAttribute));
 
             var weakAdapterMethods = _weakAdapterType.GetMethods().ToList();
@@ -111,11 +116,15 @@
                 Analyze(method, eventInfos);
             }
 
+            _codeImporter.ILMerge();
+
             Verify(methods, eventInfos);
+
+            var unsubscribeMethods = new Dictionary<TypeDefinition, MethodDefinition>();
 
             foreach (var eventInfo in eventInfos.Values)
             {
-                Weave(eventInfo);
+                Weave(eventInfo, unsubscribeMethods);
             }
         }
 
@@ -170,13 +179,14 @@
             }
         }
 
-        private void Weave([NotNull] EventInfo eventInfo)
+        private void Weave([NotNull] EventInfo eventInfo, Dictionary<TypeDefinition, MethodDefinition> unsubscribeMethods)
         {
             _logger.LogInfo($"Weaving the weak adapter into {eventInfo.Event} and {eventInfo.EventSink}");
 
             var eventSinkMethod = eventInfo.EventSink;
             var targetTypeReference = eventSinkMethod.DeclaringType;
             var targetType = targetTypeReference.Resolve();
+            var unsubscribeMethod = GetOrCreateUnsubscribeMethod(targetType, unsubscribeMethods);
 
             var sourceEvent = eventInfo.Event;
             var sourceType = _moduleDefinition.ImportReference(sourceEvent.DeclaringType);
@@ -227,7 +237,7 @@
                 Instruction.Create(OpCodes.Stfld, weakAdapterField)
             });
 
-            targetType.InsertIntoFinalizer(
+            unsubscribeMethod.Body.Instructions.InsertRange(0,
                 Instruction.Create(OpCodes.Ldarg_0),
                 Instruction.Create(OpCodes.Ldfld, weakAdapterField),
                 Instruction.Create(OpCodes.Callvirt, _weakAdapterReleaseMethod.OnGenericType(weakAdapterType))
@@ -269,6 +279,41 @@
 
                 instructions.Insert(index, Instruction.Create(OpCodes.Callvirt, method.OnGenericType(weakAdapterType)));
             }
+        }
+
+        private MethodDefinition GetOrCreateUnsubscribeMethod(TypeDefinition targetType, Dictionary<TypeDefinition, MethodDefinition> unsubscribeMethods)
+        {
+            if (unsubscribeMethods.TryGetValue(targetType, out var unsubscribeMethod))
+            {
+                return unsubscribeMethod;
+            }
+
+            var attributes = MethodAttributes.Private
+                             | MethodAttributes.Final
+                             | MethodAttributes.Virtual
+                             | MethodAttributes.HideBySig
+                             | MethodAttributes.NewSlot;
+
+            unsubscribeMethod = new MethodDefinition(">WeakEvents>Unsubscribe", attributes, _typeSystem.TypeSystem.VoidReference)
+            {
+                HasThis = true
+            };
+
+            unsubscribeMethod.Body.Instructions.Add(Instruction.Create(OpCodes.Ret));
+            unsubscribeMethods.Add(targetType, unsubscribeMethod);
+
+            targetType.Methods.Add(unsubscribeMethod);
+            var interfaceImplementation = new InterfaceImplementation(_eventTargetInterface);
+            targetType.Interfaces.Add(interfaceImplementation);
+            var interfaceMethod = _eventTargetInterface.GetMethods().Single();
+            unsubscribeMethod.Overrides.Add(interfaceMethod);
+
+            targetType.InsertIntoFinalizer(
+                Instruction.Create(OpCodes.Ldarg_0),
+                Instruction.Create(OpCodes.Callvirt, unsubscribeMethod.OnGenericTypeOrSelf(targetType))
+            );
+
+            return unsubscribeMethod;
         }
 
         [NotNull]

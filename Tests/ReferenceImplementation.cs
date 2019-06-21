@@ -130,13 +130,13 @@ namespace Template
             }
 
             [NotNull]
-            private readonly WeakEventAdapter<EventSource, EventTarget<T>, EventArgs, EventHandler<EventArgs>> _sourceEventAAdapter;
+            private readonly WeakEventHandlerFodyWeakEventAdapter<EventSource, EventTarget<T>, EventArgs, EventHandler<EventArgs>> _sourceEventAAdapter;
             [NotNull]
-            private readonly WeakEventAdapter<EventSource, EventTarget<T>, MyCancelEventArgs, EventHandler<MyCancelEventArgs>> _sourceEventBAdapter;
+            private readonly WeakEventHandlerFodyWeakEventAdapter<EventSource, EventTarget<T>, MyCancelEventArgs, EventHandler<MyCancelEventArgs>> _sourceEventBAdapter;
             [NotNull]
-            private readonly WeakEventAdapter<EventSource, EventTarget<T>, EventArgs, EventHandler<EventArgs>> _sourceEventCAdapter;
+            private readonly WeakEventHandlerFodyWeakEventAdapter<EventSource, EventTarget<T>, EventArgs, EventHandler<EventArgs>> _sourceEventCAdapter;
             [NotNull]
-            private readonly WeakEventAdapter<EventSource, EventTarget<T>, PropertyChangedEventArgs, PropertyChangedEventHandler> _sourcePropertyChangedAdapter;
+            private readonly WeakEventHandlerFodyWeakEventAdapter<EventSource, EventTarget<T>, PropertyChangedEventArgs, PropertyChangedEventHandler> _sourcePropertyChangedAdapter;
 
             public EventTarget([NotNull] EventSource source, [NotNull] Action<string> eventTracer)
             {
@@ -147,10 +147,10 @@ namespace Template
                 var eventBDelegate = GetStaticDelegate<MyCancelEventArgs>(Source_EventB);
                 var propChangeDelegate = GetStaticDelegate<PropertyChangedEventArgs>(Source_PropertyChanged);
 
-                _sourceEventAAdapter = new WeakEventAdapter<EventSource, EventTarget<T>, EventArgs, EventHandler<EventArgs>>(this, eventADelegate, Source_EventA_Add, Source_EventA_Remove);
-                _sourceEventBAdapter = new WeakEventAdapter<EventSource, EventTarget<T>, MyCancelEventArgs, EventHandler<MyCancelEventArgs>>(this, eventBDelegate, Source_EventB_Add, Source_EventB_Remove);
-                _sourceEventCAdapter = new WeakEventAdapter<EventSource, EventTarget<T>, EventArgs, EventHandler<EventArgs>>(this, eventADelegate, Source_EventC_Add, Source_EventC_Remove);
-                _sourcePropertyChangedAdapter = new WeakEventAdapter<EventSource, EventTarget<T>, PropertyChangedEventArgs, PropertyChangedEventHandler>(this, propChangeDelegate, Source_PropertyChanged_Add, Source_PropertyChanged_Remove);
+                _sourceEventAAdapter = new WeakEventHandlerFodyWeakEventAdapter<EventSource, EventTarget<T>, EventArgs, EventHandler<EventArgs>>(this, eventADelegate, Source_EventA_Add, Source_EventA_Remove);
+                _sourceEventBAdapter = new WeakEventHandlerFodyWeakEventAdapter<EventSource, EventTarget<T>, MyCancelEventArgs, EventHandler<MyCancelEventArgs>>(this, eventBDelegate, Source_EventB_Add, Source_EventB_Remove);
+                _sourceEventCAdapter = new WeakEventHandlerFodyWeakEventAdapter<EventSource, EventTarget<T>, EventArgs, EventHandler<EventArgs>>(this, eventADelegate, Source_EventC_Add, Source_EventC_Remove);
+                _sourcePropertyChangedAdapter = new WeakEventHandlerFodyWeakEventAdapter<EventSource, EventTarget<T>, PropertyChangedEventArgs, PropertyChangedEventHandler>(this, propChangeDelegate, Source_PropertyChanged_Add, Source_PropertyChanged_Remove);
             }
 
             public void Subscribe()

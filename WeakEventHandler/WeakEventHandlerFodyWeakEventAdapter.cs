@@ -1,5 +1,9 @@
 ﻿// ReSharper disable UnusedMember.Global
 // ReSharper disable MemberCanBePrivate.Global
+using System.Runtime.CompilerServices;
+
+[assembly:InternalsVisibleTo("Tests, PublicKey=00240000048000009400000006020000002400005253413100040000010001005F0D2831FD1DAD0752CB855B844B1356FBE634AC19B68478C5A015D871B3D0CA6398D9572473C9562BD11670F6726F3E1D48E19FFC69DAD0624E93072CD1AD3C7288A04592E76F7B0867A52351D6B748213D109BB076B36DC9A18B4E110BA2857762CEAB880771A7CA1E474A877A6CBB7405D716EC43348296D7EF8F37E4BA9B")]
+
 namespace WeakEventHandler
 {
     using System;
@@ -14,7 +18,7 @@ namespace WeakEventHandler
 
     [GeneratedCode("WeakEventHandler.Fody", "1.0")]
     [UsedImplicitly]
-    internal class WeakEventAdapter<TSource, TTarget, TEventArgs, TEventHandler>
+    internal class WeakEventHandlerFodyWeakEventAdapter<TSource, TTarget, TEventArgs, TEventHandler>
         where TEventArgs : EventArgs
         where TEventHandler : Delegate
         where TSource : class
@@ -41,7 +45,7 @@ namespace WeakEventHandler
         [NotNull]
         private readonly TEventHandler _eventDelegate;
 
-        public WeakEventAdapter([NotNull] TTarget targetObject, [NotNull] Action<TTarget, object, TEventArgs> targetDelegate, [NotNull] Action<TSource, TEventHandler> addDelegate, [NotNull] Action<TSource, TEventHandler> removeDelegate)
+        public WeakEventHandlerFodyWeakEventAdapter([NotNull] TTarget targetObject, [NotNull] Action<TTarget, object, TEventArgs> targetDelegate, [NotNull] Action<TSource, TEventHandler> addDelegate, [NotNull] Action<TSource, TEventHandler> removeDelegate)
         {
             _weakTarget = new WeakReference<TTarget>(targetObject);
             _targetDelegate = targetDelegate;

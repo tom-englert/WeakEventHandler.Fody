@@ -3,11 +3,9 @@
   <PropertyGroup>
     <TargetFrameworks>Net46;netcoreapp2.0</TargetFrameworks>
     <IsPackable>false</IsPackable>
+    <SignAssembly>True</SignAssembly>
+    <AssemblyOriginatorKeyFile>..\Common.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
-
-  <ItemGroup>
-    <Compile Include="..\WeakEventHandler\WeakEventAdapter.cs" Link="WeakEventAdapter.cs" />
-  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Fody" Version="4.2.1">
