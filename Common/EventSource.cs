@@ -20,29 +20,49 @@
         public event EventHandler<EventArgs> EventC;
         public event PropertyChangedEventHandler PropertyChanged;
 
-        public void RaiseEventA1()
+        public bool RaiseEventA1()
         {
-            EventA?.Invoke(this, EventArgs.Empty);
+            var eventHandler = EventA;
+            if (eventHandler == null)
+                return false;
+            eventHandler(this, EventArgs.Empty);
+            return true;
         }
 
-        public void RaiseEventA2(EventArgs e)
+        public bool RaiseEventA2(EventArgs e)
         {
-            EventA?.Invoke(this, e);
+            var eventHandler = EventA;
+            if (eventHandler == null)
+                return false;
+            eventHandler.Invoke(this, e);
+            return true;
         }
 
-        public void RaiseEventB(bool value)
+        public bool RaiseEventB(bool value)
         {
-            EventB?.Invoke(this, new MyCancelEventArgs(value));
+            var eventHandler = EventB;
+            if (eventHandler == null)
+                return false;
+            eventHandler.Invoke(this, new MyCancelEventArgs(value));
+            return true;
         }
 
-        public void RaiseEventC()
+        public bool RaiseEventC()
         {
-            EventC?.Invoke(this, EventArgs.Empty);
+            var eventHandler = EventC;
+            if (eventHandler == null)
+                return false;
+            eventHandler.Invoke(this, EventArgs.Empty);
+            return true;
         }
 
-        public void RaisePropertyChanged(string propertyName)
+        public bool RaisePropertyChanged(string propertyName)
         {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            var eventHandler = PropertyChanged;
+            if (eventHandler == null)
+                return false;
+            eventHandler.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            return true;
         }
     }
 }

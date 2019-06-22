@@ -14,8 +14,8 @@ namespace Template
 
     public interface IEventTarget
     {
-        void Subscribe();
-        void Unsubscribe();
+        void SubscribeEvents();
+        void UnsubscribeEvents();
     }
 
     public enum TargetKind
@@ -38,7 +38,7 @@ namespace Template
                 _eventTracer = eventTracer;
             }
 
-            public void Subscribe()
+            public void SubscribeEvents()
             {
                 _source.EventA += Source_EventA;
                 _source.EventB += Source_EventB;
@@ -46,7 +46,7 @@ namespace Template
                 _source.PropertyChanged += Source_PropertyChanged;
             }
 
-            public void Unsubscribe()
+            public void UnsubscribeEvents()
             {
                 _source.EventA -= Source_EventA;
                 _source.EventB -= Source_EventB;
@@ -89,7 +89,18 @@ namespace Template
     {
         using WeakEventHandler;
 
-        public class EventTarget<T> : IEventTarget
+        /// <summary>
+        /// This interface will be implemented by the weaved type after weaving.
+        /// </summary>
+        internal interface IWeakEventTarget
+        {
+            /// <summary>
+            /// Unsubscribes all subscribed weak events from the target.
+            /// </summary>
+            void Unsubscribe();
+        }
+
+        public class EventTarget<T> : IEventTarget, IWeakEventTarget
         {
             [NotNull]
             private readonly EventSource _source;
@@ -153,7 +164,7 @@ namespace Template
                 _sourcePropertyChangedAdapter = new WeakEventHandlerFodyWeakEventAdapter<EventSource, EventTarget<T>, PropertyChangedEventArgs, PropertyChangedEventHandler>(this, propChangeDelegate, Source_PropertyChanged_Add, Source_PropertyChanged_Remove);
             }
 
-            public void Subscribe()
+            public void SubscribeEvents()
             {
                 _sourceEventAAdapter.Subscribe(_source);
                 _sourceEventBAdapter.Subscribe(_source);
@@ -161,7 +172,7 @@ namespace Template
                 _sourcePropertyChangedAdapter.Subscribe(_source);
             }
 
-            public void Unsubscribe()
+            public void UnsubscribeEvents()
             {
                 _sourceEventAAdapter.Unsubscribe(_source);
                 _sourceEventBAdapter.Unsubscribe(_source);
@@ -199,11 +210,17 @@ namespace Template
                 return (Action<EventTarget<T>, object, T1>)Delegate.CreateDelegate(typeof(Action<EventTarget<T>, object, T1>), null, instanceDelegate.Method);
             }
 
-            ~EventTarget()
+            void IWeakEventTarget.Unsubscribe()
             {
                 _sourceEventAAdapter.Release();
                 _sourceEventBAdapter.Release();
                 _sourceEventCAdapter.Release();
+                _sourcePropertyChangedAdapter.Release();
+            }
+
+            ~EventTarget()
+            {
+                ((IWeakEventTarget)this).Unsubscribe();
             }
         }
     }
@@ -221,7 +238,7 @@ namespace Template
                 _eventTracer = eventTracer;
             }
 
-            public void Subscribe()
+            public void SubscribeEvents()
             {
                 GetSource(GetTarget(this)).EventA += Source_EventA;
 
@@ -230,7 +247,7 @@ namespace Template
                 _source.PropertyChanged += Source_PropertyChanged;
             }
 
-            public void Unsubscribe()
+            public void UnsubscribeEvents()
             {
                 GetSource(GetTarget(this)).EventA -= Source_EventA;
 

@@ -42,7 +42,7 @@ namespace Tests
 
             Assert.Null(lastEvent);
 
-            target.Subscribe();
+            target.SubscribeEvents();
 
             source.RaiseEventA1();
 
@@ -54,7 +54,7 @@ namespace Tests
 
             lastEvent = null;
 
-            target.Unsubscribe();
+            target.UnsubscribeEvents();
 
             source.RaiseEventA1();
 
@@ -75,17 +75,17 @@ namespace Tests
             {
                 var target = CreateTarget(targetKind, source, e => lastEvent = e);
 
-                source.RaiseEventA1();
+                Assert.False(source.RaiseEventA1());
 
                 Assert.Null(lastEvent);
 
-                target.Subscribe();
+                target.SubscribeEvents();
 
-                source.RaiseEventA1();
+                Assert.True(source.RaiseEventA1());
 
                 Assert.Equal("EventA", lastEvent);
 
-                source.RaisePropertyChanged("Test");
+                Assert.True(source.RaisePropertyChanged("Test"));
 
                 Assert.Equal("PropertyChanged: Test", lastEvent);
 
@@ -96,11 +96,12 @@ namespace Tests
 
             GCCollect();
 
-            source.RaiseEventA1();
+            var expected = source.RaiseEventA1();
+            var isWeak = IsWeak(targetKind);
+            Assert.Equal(!isWeak, expected);
 
-            var expected = IsWeak(targetKind) ? null : "EventA";
-
-            Assert.Equal(expected, lastEvent);
+            var expectedEvent = isWeak ? null : "EventA";
+            Assert.Equal(expectedEvent, lastEvent);
         }
 
         [Theory]
@@ -121,7 +122,7 @@ namespace Tests
 
                 Assert.Null(lastEvent);
 
-                target.Subscribe();
+                target.SubscribeEvents();
 
                 source.RaiseEventB(true);
 
@@ -175,7 +176,7 @@ namespace Tests
 
             Assert.Null(lastEvent);
 
-            target.Subscribe();
+            target.SubscribeEvents();
 
             source.RaiseEventA1();
 
@@ -214,8 +215,8 @@ namespace Tests
             var target = CreateTarget(targetKind, source, e => { });
             for (var i = 0; i < numberOfLoops; i++)
             {
-                target.Subscribe();
-                target.Unsubscribe();
+                target.SubscribeEvents();
+                target.UnsubscribeEvents();
             }
 
             _output.WriteLine(targetKind + ": " + stopwatch.Elapsed);
@@ -234,14 +235,14 @@ namespace Tests
 
             var source = new EventSource();
             var target = CreateTarget(targetKind, source, e => { });
-            target.Subscribe();
+            target.SubscribeEvents();
 
             for (var i = 0; i < numberOfLoops; i++)
             {
                 source.RaiseEventA1();
             }
 
-            target.Unsubscribe();
+            target.UnsubscribeEvents();
 
             _output.WriteLine(targetKind + ": " + stopwatch.Elapsed);
         }

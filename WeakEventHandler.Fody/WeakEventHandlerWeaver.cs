@@ -310,7 +310,7 @@
 
             targetType.InsertIntoFinalizer(
                 Instruction.Create(OpCodes.Ldarg_0),
-                Instruction.Create(OpCodes.Call, unsubscribeMethod.OnGenericTypeOrSelf(targetType))
+                Instruction.Create(OpCodes.Callvirt, interfaceMethod)
             );
 
             return unsubscribeMethod;
