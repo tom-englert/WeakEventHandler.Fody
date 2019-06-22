@@ -11,8 +11,6 @@ namespace Tests
 
     using Template;
 
-    using WeakEventHandler;
-
     using Xunit;
     using Xunit.Abstractions;
 
@@ -163,6 +161,8 @@ namespace Tests
         }
 
         [Theory]
+        [InlineData(TargetKind.Original)]
+        [InlineData(TargetKind.Weak)]
         [InlineData(TargetKind.Fody)]
         public void UnsubscribeWeakEvents(TargetKind targetKind)
         {
@@ -188,7 +188,7 @@ namespace Tests
 
             lastEvent = null;
 
-            WeakEvents.Unsubscribe(target);
+            target.UnsubscribeAll();
 
             source.RaiseEventA1();
 

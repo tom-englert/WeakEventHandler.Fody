@@ -16,6 +16,8 @@ namespace Template
     {
         void SubscribeEvents();
         void UnsubscribeEvents();
+
+        void UnsubscribeAll();
     }
 
     public enum TargetKind
@@ -52,6 +54,11 @@ namespace Template
                 _source.EventB -= Source_EventB;
                 _source.EventC -= Source_EventA;
                 _source.PropertyChanged -= Source_PropertyChanged;
+            }
+
+            public void UnsubscribeAll()
+            {
+                UnsubscribeEvents();
             }
 
             private void Source_EventA(object sender, EventArgs e)
@@ -184,8 +191,13 @@ namespace Template
             {
                 if (source == null)
                     return;
-                
+
                 _sourceEventAAdapter.Subscribe(source);
+            }
+
+            public void UnsubscribeAll()
+            {
+                UnsubscribeEvents();
             }
 
             private void Source_EventA(object sender, EventArgs e)
@@ -207,7 +219,11 @@ namespace Template
             private Action<EventTarget<T>, object, T1> GetStaticDelegate<T1>([NotNull] Action<object, T1> instanceDelegate)
                 where T1 : EventArgs
             {
+#if NETSTANDARD1_0 || NET40
+                throw new NotImplementedException(instanceDelegate.ToString());
+#else
                 return (Action<EventTarget<T>, object, T1>)Delegate.CreateDelegate(typeof(Action<EventTarget<T>, object, T1>), null, instanceDelegate.Method);
+#endif
             }
 
             void IWeakEventTarget.Unsubscribe()
@@ -227,6 +243,8 @@ namespace Template
 
     namespace Fody
     {
+        using WeakEventHandler;
+
         public class EventTarget<T> : IEventTarget
         {
             private readonly EventSource _source;
@@ -256,6 +274,11 @@ namespace Template
                 _source.PropertyChanged -= Source_PropertyChanged;
             }
 
+            public void UnsubscribeAll()
+            {
+                WeakEvents.Unsubscribe(this);
+            }
+
             public void Subscribe2([CanBeNull] EventSource source)
             {
                 if (source == null)
@@ -264,19 +287,19 @@ namespace Template
                 source.EventA += Source_EventA;
             }
 
-            [WeakEventHandler.MakeWeak]
+            [MakeWeak]
             private void Source_EventA(object sender, EventArgs e)
             {
                 _eventTracer("EventA");
             }
 
-            [WeakEventHandler.MakeWeak]
+            [MakeWeak]
             private void Source_EventB(object sender, MyCancelEventArgs e)
             {
                 _eventTracer("EventB " + e.Cancel);
             }
 
-            [WeakEventHandler.MakeWeak]
+            [MakeWeak]
             private void Source_PropertyChanged(object sender, PropertyChangedEventArgs e)
             {
                 _eventTracer("PropertyChanged: " + e.PropertyName);
