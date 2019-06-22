@@ -196,6 +196,9 @@
             var eventHandlerType = eventInfo.EventHandlerConstructor.DeclaringType;
             var weakAdapterType = _weakAdapterType.MakeGenericInstanceType(sourceType, targetTypeReference, eventArgsType, eventHandlerType);
             var weakAdapterConstructor = _weakAdapterConstructor.OnGenericType(weakAdapterType);
+            var weakAdapterSubscribeMethod = _weakAdapterSubscribeMethod.OnGenericType(weakAdapterType);
+            var weakAdapterUnsubscribeMethod = _weakAdapterUnsubscribeMethod.OnGenericType(weakAdapterType);
+            var weakAdapterReleaseMethod = _weakAdapterReleaseMethod.OnGenericType(weakAdapterType);
 
             var eventSinkActionType = _action3Type.MakeGenericInstanceType(targetTypeReference, _typeSystem.TypeSystem.ObjectReference, eventArgsType);
             var eventSinkActionConstructor = _action3Constructor.OnGenericType(eventSinkActionType);
@@ -206,9 +209,10 @@
             var weakAdapterField = new FieldDefinition($"{eventInfo}>Adapter", FieldAttributes.InitOnly | FieldAttributes.Private | FieldAttributes.NotSerialized, weakAdapterType);
             weakAdapterField.CustomAttributes.Add(_generatedCodeAttribute);
             targetType.Fields.Add(weakAdapterField);
+            var weakAdapterFieldReference = new FieldReference(weakAdapterField.Name, weakAdapterType, targetTypeReference);
 
-            var addMethodAdapter = CreateStaticAddRemoveMethod(sourceType, eventHandlerType, eventInfo + ">Add", _moduleDefinition.ImportReference(sourceEvent.AddMethod));
-            var removeMethodAdapter = CreateStaticAddRemoveMethod(sourceType, eventHandlerType, eventInfo + ">Remove", _moduleDefinition.ImportReference(sourceEvent.RemoveMethod));
+            var addMethodAdapter = CreateStaticAddRemoveMethod(sourceType, eventHandlerType, eventInfo + "!>Add", _moduleDefinition.ImportReference(sourceEvent.AddMethod));
+            var removeMethodAdapter = CreateStaticAddRemoveMethod(sourceType, eventHandlerType, eventInfo + "!>Remove", _moduleDefinition.ImportReference(sourceEvent.RemoveMethod));
 
             targetType.Methods.Add(addMethodAdapter);
             targetType.Methods.Add(removeMethodAdapter);
@@ -234,13 +238,13 @@
 
                 Instruction.Create(OpCodes.Newobj, weakAdapterConstructor),
 
-                Instruction.Create(OpCodes.Stfld, weakAdapterField)
+                Instruction.Create(OpCodes.Stfld, weakAdapterFieldReference)
             });
 
             unsubscribeMethod.Body.Instructions.InsertRange(0,
                 Instruction.Create(OpCodes.Ldarg_0),
-                Instruction.Create(OpCodes.Ldfld, weakAdapterField),
-                Instruction.Create(OpCodes.Callvirt, _weakAdapterReleaseMethod.OnGenericType(weakAdapterType))
+                Instruction.Create(OpCodes.Ldfld, weakAdapterFieldReference),
+                Instruction.Create(OpCodes.Callvirt, weakAdapterReleaseMethod)
             );
 
             foreach (var instructionInfo in eventInfo.Instructions)
@@ -265,7 +269,7 @@
                 // keep the top instruction, maybe used as jump target or sequence point in debug info.
                 var topInstruction = instructions[index++].ReplaceWith(OpCodes.Ldarg_0);
 
-                instructions.Insert(index++, Instruction.Create(OpCodes.Ldfld, weakAdapterField));
+                instructions.Insert(index++, Instruction.Create(OpCodes.Ldfld, weakAdapterFieldReference));
                 instructions.Insert(index, topInstruction);
 
                 index = indexOfEventHandler + 1;
@@ -275,9 +279,9 @@
                 instructions.RemoveAt(index, OpCodes.Newobj);
                 instructions.RemoveAt(index, OpCodes.Callvirt);
 
-                var method = instructionInfo.EventRegistration == EventRegistration.Add ? _weakAdapterSubscribeMethod : _weakAdapterUnsubscribeMethod;
+                var method = instructionInfo.EventRegistration == EventRegistration.Add ? weakAdapterSubscribeMethod : weakAdapterUnsubscribeMethod;
 
-                instructions.Insert(index, Instruction.Create(OpCodes.Callvirt, method.OnGenericType(weakAdapterType)));
+                instructions.Insert(index, Instruction.Create(OpCodes.Callvirt, method));
             }
         }
 
