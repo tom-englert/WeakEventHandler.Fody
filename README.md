@@ -52,7 +52,7 @@ public class EventSubscriber
 
 ### What gets compiled
 
-```C
+```C#
 public class EventSubscriber
 {
     private readonly EventSource _source;
