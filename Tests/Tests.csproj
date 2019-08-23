@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>Net46;netcoreapp2.0</TargetFrameworks>
+    <TargetFrameworks>Net47;netcoreapp2.0</TargetFrameworks>
     <IsPackable>false</IsPackable>
     <SignAssembly>True</SignAssembly>
     <AssemblyOriginatorKeyFile>..\Common.snk</AssemblyOriginatorKeyFile>
@@ -11,7 +11,7 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.1.1" />
     <PackageReference Include="xunit" Version="2.4.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.1" PrivateAssets="all" />
-    <PackageReference Include="JetBrains.Annotations" Version="2019.1.1" PrivateAssets="all" />
+    <PackageReference Include="JetBrains.Annotations" Version="2019.1.3" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
