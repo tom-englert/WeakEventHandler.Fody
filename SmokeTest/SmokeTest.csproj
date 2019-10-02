@@ -19,4 +19,8 @@
     <ProjectReference Include="..\WeakEventHandler\WeakEventHandler.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <WeaverFiles Include="$(SolutionDir)$(SolutionName)\bin\$(Configuration)\Netstandard2.0\$(SolutionName).dll" />
+  </ItemGroup>
+
 </Project>
