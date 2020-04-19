@@ -9,8 +9,6 @@
 
     using global::Fody;
 
-    using JetBrains.Annotations;
-
     using Mono.Cecil;
     using Mono.Cecil.Cil;
     using Mono.Cecil.Rocks;
@@ -19,40 +17,25 @@
     {
         private const string MakeWeakAttributeName = "WeakEventHandler.MakeWeakAttribute";
 
-        [NotNull]
         private readonly TypeReference _action2Type;
-        [NotNull]
         private readonly MethodReference _action2Constructor;
-        [NotNull]
         private readonly TypeReference _action3Type;
-        [NotNull]
         private readonly MethodReference _action3Constructor;
-        [NotNull]
         private readonly CustomAttribute _generatedCodeAttribute;
 
-        [NotNull]
         private readonly TypeDefinition _weakAdapterType;
-        [NotNull]
         private readonly MethodDefinition _weakAdapterConstructor;
-        [NotNull]
         private readonly MethodDefinition _weakAdapterSubscribeMethod;
-        [NotNull]
         private readonly MethodDefinition _weakAdapterUnsubscribeMethod;
-        [NotNull]
         private readonly MethodDefinition _weakAdapterReleaseMethod;
 
-        [NotNull]
         private readonly ModuleDefinition _moduleDefinition;
-        [NotNull]
         private readonly ITypeSystem _typeSystem;
-        [NotNull]
         private readonly ILogger _logger;
-        [NotNull]
         private readonly TypeDefinition _eventTargetInterface;
-        [NotNull]
         private readonly CodeImporter _codeImporter;
 
-        public static void Weave([NotNull] ModuleDefinition moduleDefinition, [NotNull] ITypeSystem typeSystem, [NotNull] ILogger logger)
+        public static void Weave(ModuleDefinition moduleDefinition, ITypeSystem typeSystem, ILogger logger)
         {
             if (!moduleDefinition.TryGetTypeReference(MakeWeakAttributeName, out var makeWeakAttributeReference))
             {
@@ -63,7 +46,7 @@
             new WeakEventHandlerWeaver(moduleDefinition, typeSystem, logger, makeWeakAttributeReference).Weave();
         }
 
-        private WeakEventHandlerWeaver([NotNull] ModuleDefinition moduleDefinition, [NotNull] ITypeSystem typeSystem, [NotNull] ILogger logger, [NotNull] TypeReference makeWeakAttributeReference)
+        private WeakEventHandlerWeaver(ModuleDefinition moduleDefinition, ITypeSystem typeSystem, ILogger logger, TypeReference makeWeakAttributeReference)
         {
             _moduleDefinition = moduleDefinition;
             _typeSystem = typeSystem;
@@ -107,7 +90,7 @@
             Weave(methods);
         }
 
-        private void Weave([NotNull, ItemNotNull] ICollection<MethodDefinition> methods)
+        private void Weave(ICollection<MethodDefinition> methods)
         {
             var eventInfos = new Dictionary<EventKey, EventInfo>();
 
@@ -128,7 +111,7 @@
             }
         }
 
-        private void Verify([NotNull, ItemNotNull] IEnumerable<MethodDefinition> eventHandlerMethods, [NotNull] Dictionary<EventKey, EventInfo> eventInfos)
+        private void Verify(IEnumerable<MethodDefinition> eventHandlerMethods, Dictionary<EventKey, EventInfo> eventInfos)
         {
             var unmappedMethods = eventHandlerMethods
                 .Where(method => eventInfos.Values.All(eventInfo => eventInfo?.EventSinkDefinition != method))
@@ -140,7 +123,7 @@
             }
         }
 
-        private void Analyze([NotNull] MethodDefinition eventHandlerMethod, [NotNull] Dictionary<EventKey, EventInfo> eventInfos)
+        private void Analyze(MethodDefinition eventHandlerMethod, Dictionary<EventKey, EventInfo> eventInfos)
         {
             var type = eventHandlerMethod.DeclaringType;
 
@@ -153,10 +136,10 @@
                     var methodReference = (MethodReference)instruction.Operand;
                     var createEventHandler = instruction.Next;
 
-                    if (createEventHandler?.OpCode != OpCodes.Newobj)
+                    if ((createEventHandler == null) || createEventHandler.OpCode != OpCodes.Newobj)
                         continue;
 
-                    var callAddOrRemoveEvent = createEventHandler?.Next;
+                    var callAddOrRemoveEvent = createEventHandler.Next;
 
                     if (callAddOrRemoveEvent?.OpCode != OpCodes.Callvirt)
                         continue;
@@ -179,7 +162,7 @@
             }
         }
 
-        private void Weave([NotNull] EventInfo eventInfo, Dictionary<TypeDefinition, MethodDefinition> unsubscribeMethods)
+        private void Weave(EventInfo eventInfo, Dictionary<TypeDefinition, MethodDefinition> unsubscribeMethods)
         {
             _logger.LogInfo($"Weaving the weak adapter into {eventInfo.Event} and {eventInfo.EventSink}");
 
@@ -320,8 +303,7 @@
             return unsubscribeMethod;
         }
 
-        [NotNull]
-        private MethodDefinition CreateStaticAddRemoveMethod([NotNull] TypeReference sourceType, [NotNull] TypeReference eventHandlerType, [NotNull] string name, [NotNull] MethodReference addOrRemoveMethod)
+        private MethodDefinition CreateStaticAddRemoveMethod(TypeReference sourceType, TypeReference eventHandlerType, string name, MethodReference addOrRemoveMethod)
         {
             var method = new MethodDefinition(name, MethodAttributes.Private | MethodAttributes.Static | MethodAttributes.HideBySig, _typeSystem.TypeSystem.VoidReference);
             method.CustomAttributes.Add(_generatedCodeAttribute);
@@ -339,7 +321,7 @@
             return method;
         }
 
-        private static void Verify([NotNull, ItemNotNull] IEnumerable<MethodDefinition> eventHandlerMethods)
+        private static void Verify(IEnumerable<MethodDefinition> eventHandlerMethods)
         {
             foreach (var method in eventHandlerMethods)
             {
@@ -354,7 +336,7 @@
             }
         }
 
-        private static bool IsEventArgs([CanBeNull] TypeReference type)
+        private static bool IsEventArgs(TypeReference? type)
         {
             if (type == null)
                 return false;
@@ -362,7 +344,7 @@
             return type.FullName == "System.EventArgs" || IsEventArgs(type.Resolve()?.BaseType);
         }
 
-        private static bool ConsumeAttribute([NotNull] ICustomAttributeProvider attributeProvider)
+        private static bool ConsumeAttribute(ICustomAttributeProvider attributeProvider)
         {
             const string attributeName = MakeWeakAttributeName;
 
@@ -375,8 +357,7 @@
             return true;
         }
 
-        [NotNull]
-        private static EventInfo GetOrAdd([NotNull] IDictionary<EventKey, EventInfo> items, [NotNull] EventKey key)
+        private static EventInfo GetOrAdd(IDictionary<EventKey, EventInfo> items, EventKey key)
         {
             if (items.TryGetValue(key, out var info))
                 return info;
@@ -389,7 +370,7 @@
 
         private class EventKey : IEquatable<EventKey>
         {
-            public EventKey([NotNull] MethodReference eventSink, [NotNull] EventDefinition eventDefinition, [NotNull] MethodReference eventHandlerConstructor)
+            public EventKey(MethodReference eventSink, EventDefinition eventDefinition, MethodReference eventHandlerConstructor)
             {
                 EventSink = eventSink;
                 Event = eventDefinition;
@@ -397,13 +378,9 @@
                 EventSinkDefinition = eventSink.Resolve();
             }
 
-            [NotNull]
             public MethodDefinition EventSinkDefinition { get; }
-            [NotNull]
             public MethodReference EventSink { get; }
-            [NotNull]
             public EventDefinition Event { get; }
-            [NotNull]
             public MethodReference EventHandlerConstructor { get; }
 
             public override string ToString()
@@ -413,7 +390,7 @@
 
             #region Equatable
 
-            public bool Equals([CanBeNull] EventKey other)
+            public bool Equals(EventKey? other)
             {
                 if (other is null)
                     return false;
@@ -422,7 +399,7 @@
                 return Equals(EventSinkDefinition, other.EventSinkDefinition) && Equals(Event, other.Event);
             }
 
-            public override bool Equals([CanBeNull] object obj)
+            public override bool Equals(object? obj)
             {
                 return Equals(obj as EventKey);
             }
@@ -440,12 +417,11 @@
 
         private class EventInfo : EventKey
         {
-            public EventInfo([NotNull] EventKey key)
+            public EventInfo(EventKey key)
                 : base(key.EventSink, key.Event, key.EventHandlerConstructor)
             {
             }
 
-            [NotNull, ItemNotNull]
             public IList<InstructionInfo> Instructions { get; } = new List<InstructionInfo>();
         }
 
@@ -457,7 +433,7 @@
 
         private class InstructionInfo
         {
-            public InstructionInfo(EventRegistration eventRegistration, [NotNull] Instruction instruction, [NotNull] IList<Instruction> collection)
+            public InstructionInfo(EventRegistration eventRegistration, Instruction instruction, IList<Instruction> collection)
             {
                 EventRegistration = eventRegistration;
                 Instruction = instruction;
@@ -466,10 +442,8 @@
 
             public EventRegistration EventRegistration { get; }
 
-            [NotNull]
             public Instruction Instruction { get; }
 
-            [NotNull]
             public IList<Instruction> Collection { get; }
         }
     }

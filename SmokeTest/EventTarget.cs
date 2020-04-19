@@ -6,8 +6,6 @@ namespace SmokeTest
 
     using Common;
 
-    using JetBrains.Annotations;
-
     public class EventTarget
     {
         private readonly EventSource _source;
@@ -52,12 +50,12 @@ namespace SmokeTest
             _eventTracer("EventB " + e.Cancel);
         }
 
-        private static EventSource GetSource([NotNull] EventTarget target)
+        private static EventSource GetSource(EventTarget target)
         {
             return target._source;
         }
 
-        private static EventTarget GetTarget([NotNull] EventTarget target)
+        private static EventTarget GetTarget(EventTarget target)
         {
             return target;
         }

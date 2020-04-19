@@ -14,10 +14,7 @@ namespace WeakEventHandler
 #endif
     using System.Threading;
 
-    using JetBrains.Annotations;
-
     [GeneratedCode("WeakEventHandler.Fody", "1.0")]
-    [UsedImplicitly]
     internal class WeakEventHandlerFodyWeakEventAdapter<TSource, TTarget, TEventArgs, TEventHandler>
         where TEventArgs : EventArgs
         where TEventHandler : Delegate
@@ -27,25 +24,19 @@ namespace WeakEventHandler
         /// <summary>
         /// WeakReference to the object listening for the event.
         /// </summary>
-        [NotNull]
         private readonly WeakReference<TTarget> _weakTarget;
 
-        [NotNull]
         private readonly Action<TTarget, object, TEventArgs> _targetDelegate;
 
-        [NotNull]
         private readonly Action<TSource, TEventHandler> _addDelegate;
 
-        [NotNull]
         private readonly Action<TSource, TEventHandler> _removeDelegate;
 
-        [NotNull, ItemNotNull]
         private List<TSource> _subscriptions = new List<TSource>();
 
-        [NotNull]
         private readonly TEventHandler _eventDelegate;
 
-        public WeakEventHandlerFodyWeakEventAdapter([NotNull] TTarget targetObject, [NotNull] Action<TTarget, object, TEventArgs> targetDelegate, [NotNull] Action<TSource, TEventHandler> addDelegate, [NotNull] Action<TSource, TEventHandler> removeDelegate)
+        public WeakEventHandlerFodyWeakEventAdapter(TTarget targetObject, Action<TTarget, object, TEventArgs> targetDelegate, Action<TSource, TEventHandler> addDelegate, Action<TSource, TEventHandler> removeDelegate)
         {
             _weakTarget = new WeakReference<TTarget>(targetObject);
             _targetDelegate = targetDelegate;
@@ -73,7 +64,7 @@ namespace WeakEventHandler
             _targetDelegate(target, sender, e);
         }
 
-        public void Subscribe([NotNull] TSource source)
+        public void Subscribe(TSource source)
         {
             var oldList = Volatile.Read(ref _subscriptions);
 
@@ -90,7 +81,7 @@ namespace WeakEventHandler
             _addDelegate(source, _eventDelegate);
         }
 
-        public void Unsubscribe([NotNull] TSource source)
+        public void Unsubscribe(TSource source)
         {
             var oldList = Volatile.Read(ref _subscriptions);
 
@@ -118,7 +109,6 @@ namespace WeakEventHandler
         }
 
 #if NET40
-
         private static class Volatile
         {
             public static T Read<T>(ref T value)
@@ -135,7 +125,7 @@ namespace WeakEventHandler
             {
             }
 
-            public bool TryGetTarget([CanBeNull] out T target)
+            public bool TryGetTarget([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out T? target)
             {
                 target = Target as T;
                 return target != null;

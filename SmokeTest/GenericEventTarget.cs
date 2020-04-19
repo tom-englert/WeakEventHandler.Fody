@@ -7,8 +7,6 @@ namespace SmokeTest
 
     using Common;
 
-    using JetBrains.Annotations;
-
     public class GenericEventTarget<T>
     {
         private readonly EventSource _source;
@@ -59,17 +57,17 @@ namespace SmokeTest
             _eventTracer("PropertyChanged");
         }
 
-        private static EventSource GetSource([NotNull] GenericEventTarget<T> target)
+        private static EventSource GetSource(GenericEventTarget<T> target)
         {
             return target._source;
         }
 
-        private static GenericEventTarget<T> GetTarget([NotNull] GenericEventTarget<T> target)
+        private static GenericEventTarget<T> GetTarget(GenericEventTarget<T> target)
         {
             return target;
         }
 
-        private void Attach([CanBeNull] INotifyPropertyChanged sender)
+        private void Attach(INotifyPropertyChanged? sender)
         {
             if (sender == null)
                 return;

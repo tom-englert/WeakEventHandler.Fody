@@ -7,8 +7,6 @@ namespace Tests
 
     using Common;
 
-    using JetBrains.Annotations;
-
     using Template;
 
     using Xunit;
@@ -16,10 +14,9 @@ namespace Tests
 
     public class ReferenceImplementationTest
     {
-        [NotNull]
         private readonly ITestOutputHelper _output;
 
-        public ReferenceImplementationTest([NotNull] ITestOutputHelper output)
+        public ReferenceImplementationTest(ITestOutputHelper output)
         {
             _output = output;
         }
@@ -254,20 +251,16 @@ namespace Tests
             GC.WaitForFullGCApproach();
         }
 
-        private IEventTarget CreateTarget<T>(TargetKind targetKind, [NotNull] T source, [NotNull] Action<string> eventTracer)
+        private IEventTarget CreateTarget<T>(TargetKind targetKind, T source, Action<string> eventTracer)
             where T : EventSource
         {
-            switch (targetKind)
+            return targetKind switch
             {
-                case TargetKind.Original:
-                    return new Template.Original.EventTarget<int>(source, eventTracer);
-                case TargetKind.Weak:
-                    return new Template.Weak.EventTarget<int>(source, eventTracer);
-                case TargetKind.Fody:
-                    return new Template.Fody.EventTarget<int>(source, eventTracer);
-            }
-
-            throw new InvalidOperationException();
+                TargetKind.Original => (IEventTarget) new Template.Original.EventTarget<int>(source, eventTracer),
+                TargetKind.Weak => new Template.Weak.EventTarget<int>(source, eventTracer),
+                TargetKind.Fody => new Template.Fody.EventTarget<int>(source, eventTracer),
+                _ => throw new InvalidOperationException()
+            };
         }
 
         private bool IsWeak(TargetKind targetKind)
