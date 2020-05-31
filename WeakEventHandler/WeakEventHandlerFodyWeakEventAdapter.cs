@@ -125,7 +125,7 @@ namespace WeakEventHandler
             {
             }
 
-            public bool TryGetTarget([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out T? target)
+            public bool TryGetTarget([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out T target)
             {
                 target = Target as T;
                 return target != null;
