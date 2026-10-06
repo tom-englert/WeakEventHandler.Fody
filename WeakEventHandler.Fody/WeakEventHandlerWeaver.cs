@@ -56,7 +56,7 @@
 
             var helperTypes = makeWeakAttribute.Module.Types;
 
-            _codeImporter = new CodeImporter(moduleDefinition) { NamespaceDecorator = value => "<>" + value };
+            _codeImporter = new CodeImporter(moduleDefinition) { NamespaceDecorator = value => "<>" + value, CompactMode = false };
 
             _weakAdapterType = _codeImporter.Import(helperTypes.Single(t => t.Name == "WeakEventHandlerFodyWeakEventAdapter`4"));
             _eventTargetInterface = _codeImporter.Import(helperTypes.Single(t => t.Name == "IWeakEventHandlerFodyWeakEventTarget"));

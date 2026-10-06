@@ -2,15 +2,11 @@
 // ReSharper disable UnusedVariable
 namespace Tests
 {
+    using Common;
     using System;
     using System.Diagnostics;
-
-    using Common;
-
     using Template;
-
     using Xunit;
-    using Xunit.Abstractions;
 
     public class ReferenceImplementationTest
     {
@@ -27,7 +23,7 @@ namespace Tests
         [InlineData(TargetKind.Fody)]
         public void StandardBehavior(TargetKind targetKind)
         {
-            var lastEvent = (string)null;
+            string? lastEvent = null;
 
             var source = new EventSource();
 
@@ -62,7 +58,7 @@ namespace Tests
         [InlineData(TargetKind.Fody)]
         public void BehaviorWhenTargetIsOutOfScope(TargetKind targetKind)
         {
-            var lastEvent = (string)null;
+            string? lastEvent = null;
 
             var source = new EventSource();
 
@@ -105,7 +101,7 @@ namespace Tests
         [InlineData(TargetKind.Fody)]
         public void BehaviorWithCustomEventArgs(TargetKind targetKind)
         {
-            var lastEvent = (string)null;
+            string? lastEvent = null;
 
             var source = new EventSource();
 
@@ -163,7 +159,7 @@ namespace Tests
         [InlineData(TargetKind.Fody)]
         public void UnsubscribeWeakEvents(TargetKind targetKind)
         {
-            var lastEvent = (string)null;
+            string? lastEvent = null;
 
             var source = new EventSource();
 
@@ -256,7 +252,7 @@ namespace Tests
         {
             return targetKind switch
             {
-                TargetKind.Original => (IEventTarget) new Template.Original.EventTarget<int>(source, eventTracer),
+                TargetKind.Original => (IEventTarget)new Template.Original.EventTarget<int>(source, eventTracer),
                 TargetKind.Weak => new Template.Weak.EventTarget<int>(source, eventTracer),
                 TargetKind.Fody => new Template.Fody.EventTarget<int>(source, eventTracer),
                 _ => throw new InvalidOperationException()

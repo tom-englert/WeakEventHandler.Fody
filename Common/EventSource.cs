@@ -15,10 +15,10 @@
 
     public class EventSource : INotifyPropertyChanged
     {
-        public event EventHandler<EventArgs> EventA;
-        public event EventHandler<MyCancelEventArgs> EventB;
-        public event EventHandler<EventArgs> EventC;
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event EventHandler<EventArgs>? EventA;
+        public event EventHandler<MyCancelEventArgs>? EventB;
+        public event EventHandler<EventArgs>? EventC;
+        public event PropertyChangedEventHandler? PropertyChanged;
 
         public bool RaiseEventA1()
         {
