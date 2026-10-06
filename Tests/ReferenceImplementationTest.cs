@@ -240,6 +240,21 @@ namespace Tests
             _output.WriteLine(targetKind + ": " + stopwatch.Elapsed);
         }
 
+        [Fact]
+        public void FinalizerDoesNotThrowWhenConstructorFailed()
+        {
+            void Inner()
+            {
+                Assert.Throws<ArgumentException>(() => new SmokeTest.FailingConstructorEventTarget(new EventSource()));
+            }
+
+            Inner();
+
+            // An unhandled exception in the finalizer thread would crash the test host.
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+        }
+
         private static void GCCollect()
         {
             GC.Collect();

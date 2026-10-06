@@ -224,7 +224,13 @@
                 Instruction.Create(OpCodes.Stfld, weakAdapterFieldReference)
             });
 
+            // The adapter is null if the constructor threw before it was created, but the finalizer still runs.
+            var firstInstruction = unsubscribeMethod.Body.Instructions[0];
+
             unsubscribeMethod.Body.Instructions.InsertRange(0,
+                Instruction.Create(OpCodes.Ldarg_0),
+                Instruction.Create(OpCodes.Ldfld, weakAdapterFieldReference),
+                Instruction.Create(OpCodes.Brfalse, firstInstruction),
                 Instruction.Create(OpCodes.Ldarg_0),
                 Instruction.Create(OpCodes.Ldfld, weakAdapterFieldReference),
                 Instruction.Create(OpCodes.Callvirt, weakAdapterReleaseMethod)
